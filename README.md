@@ -1,6 +1,6 @@
 <h1 align="center">
-  <a href="https://github.com/orangebeard-io/ranorex-listener-listener">
-    <img src="https://raw.githubusercontent.com/orangebeard-io/ranorex-listener/master/.github/logo.svg" alt="Orangebeard.io FitNesse TestSystemListener" height="200">
+  <a href="https://github.com/orangebeard-io/Ranorex-Logger">
+    <img src="https://raw.githubusercontent.com/orangebeard-io/Ranorex-Logger/master/.github/logo.svg" alt="Orangebeard.io FitNesse TestSystemListener" height="200">
   </a>
   <br>Orangebeard.io Ranorex Report Logger<br>
 </h1>
@@ -8,8 +8,8 @@
 <h4 align="center">A Report Logger to report Ranorex tests in Orangebeard.</h4>
 
 <p align="center">
-  <a href="https://github.com/orangebeard-io/ranorex-listener/blob/master/LICENSE.txt">
-    <img src="https://img.shields.io/github/license/orangebeard-io/ranorex-listener?style=flat-square"
+  <a href="https://github.com/orangebeard-io/Ranorex-Logger/blob/master/LICENSE.txt">
+    <img src="https://img.shields.io/github/license/orangebeard-io/Ranorex-Logger?style=flat-square"
       alt="License" />
   </a>
 </p>
