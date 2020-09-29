@@ -25,6 +25,7 @@
 ## Build
  * Clone this repository
  * Open in a .Net IDE
+ * Add ReportPortal.Client and ReportPortal.Shared dependencies from NuGet (both 3.0.0 version)
  * Build the DLL
 
 ## Install
