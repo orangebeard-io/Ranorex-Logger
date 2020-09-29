@@ -14,7 +14,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace RanorexOrangebeardListener
 {
@@ -50,8 +49,8 @@ namespace RanorexOrangebeardListener
             {
                 StartTime = System.DateTime.UtcNow,
                 Name = Environment.GetEnvironmentVariable("orangebeard.testrun"),
-                
-            });      
+
+            });
         }
 
         public void End()
@@ -62,7 +61,7 @@ namespace RanorexOrangebeardListener
                 while (currentReporter.ParentTestReporter != null)
                 {
                     currentReporter.Finish(new FinishTestItemRequest
-                    {                        
+                    {
                         Status = Status.Interrupted,
                         EndTime = System.DateTime.UtcNow
                     });
@@ -169,7 +168,7 @@ namespace RanorexOrangebeardListener
                         TestSuiteEntry container = (TestSuiteEntry)TestSuite.CurrentTestContainer;
                         description = getDescription(container, name);
                     }
-                        StartTestItemRequest rq = new StartTestItemRequest
+                    StartTestItemRequest rq = new StartTestItemRequest
                     {
                         StartTime = System.DateTime.UtcNow,
                         Type = type,
@@ -186,7 +185,7 @@ namespace RanorexOrangebeardListener
                     {
                         EndTime = System.DateTime.UtcNow,
                         Status = determineStatus(info["result"])
-                    }) ;
+                    });
                     currentReporter = currentReporter.ParentTestReporter;
                 }
                 return true;
@@ -201,9 +200,10 @@ namespace RanorexOrangebeardListener
             if (!describedSteps.Contains(container.Id) && container.DisplayName.Equals(name))
             {
                 describedSteps.Add(container.Id);
-                result =  container.Comment;
+                result = container.Comment;
             }
-            else if (container.GetType().IsSubclassOf(typeof(TestSuiteEntryContainer))) {
+            else if (container.GetType().IsSubclassOf(typeof(TestSuiteEntryContainer)))
+            {
                 TestSuiteEntryContainer ct = (TestSuiteEntryContainer)container;
                 foreach (TestSuiteEntry child in ct.Children)
                 {
@@ -212,7 +212,7 @@ namespace RanorexOrangebeardListener
                         result = getDescription(child, name);
                     }
                 }
-            } 
+            }
             return result;
         }
 
@@ -291,9 +291,8 @@ namespace RanorexOrangebeardListener
                     attrs.Add(new ItemAttribute { Key = attr[0], Value = attr[1] });
                 }
             }
-
-
-            MessageResponse updateresp = orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateOrangebeardLaunchRequest { Attributes = attrs }).GetAwaiter().GetResult();
+            
+            orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateOrangebeardLaunchRequest { Attributes = attrs });
         }
 
         private string ConstructMetaDataLogMessage(IDictionary<string, string> metaInfos)
