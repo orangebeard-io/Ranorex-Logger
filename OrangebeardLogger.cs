@@ -10,6 +10,7 @@
 
 using Ranorex;
 using Ranorex.Core;
+using Ranorex.Core.Reporting;
 using Ranorex.Core.Testing;
 using RanorexOrangebeardListener.Requests;
 using ReportPortal.Client;
@@ -96,7 +97,7 @@ namespace RanorexOrangebeardListener
         }
 
         public void LogText(ReportLevel level, string category, string message, bool escape, IDictionary<string, string> metaInfos)
-        {
+        {            
             if (category.Equals("System Summary", StringComparison.InvariantCultureIgnoreCase))
             {
                 updateTestrunWithSystemInfo(message);
@@ -139,40 +140,58 @@ namespace RanorexOrangebeardListener
 
                 List<ItemAttribute> attributes = new List<ItemAttribute>();
 
-                switch (info["activity"])
-                {
-                    case "testsuite":
-                        type = TestItemType.Suite;
-                        name = info["modulename"];
-                        break;
-                    case "testcontainer":
-                        type = TestItemType.Suite;
-                        name = info["testcontainername"];
-                        attributes.Add(new ItemAttribute { Value = "Smart folder" });
-                        break;
-                    case "testcase_dataiteration":
-                        type = TestItemType.Test;
-                        name = info["testcontainername"];
-                        name_postfix = " (data iteration #" + info["testcasedataiteration"] + ")";
-                        break;
-                    case "testmodule":
-                        type = TestItemType.Step;
-                        name = info["modulename"];
-                        attributes.Add(new ItemAttribute { Value = "Module" });
-                        if (isSetUp(name))
-                        {
-                            attributes.Add(new ItemAttribute { Value = "Setup" });
-                            type = TestItemType.BeforeMethod;
-                        }
-                        if (isTearDown(name))
-                        {
-                            attributes.Add(new ItemAttribute { Value = "TearDown" });
-                            type = TestItemType.AfterMethod;
-                        }
-                        break;
-                }
+                //If ther is no result key, we need to start an item
                 if (!info.ContainsKey("result"))
                 {
+                    switch (info["activity"])
+                    {
+                        case "testsuite":
+                            type = TestItemType.Suite;
+                            name = info["modulename"];
+                            attributes.Add(new ItemAttribute { Value = "Suite" });
+                            break;
+                        case "testcontainer":
+                            name = info["testcontainername"];
+                            if (TestSuite.CurrentTestContainer.IsSmartFolder)
+                            {
+                                type = TestItemType.Suite;
+                                attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                            }
+                            else
+                            {
+                                type = TestItemType.Test;
+                                attributes.Add(new ItemAttribute { Value = "Test Case" });
+                            }
+                            break;
+                        case "smartfolder_dataiteration":
+                            type = TestItemType.Suite;
+                            name = info["testcontainername"];
+                            name_postfix = " (data iteration #" + info["smartfolderdataiteration "] + ")";
+                            attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                            break;
+                        case "testcase_dataiteration":
+                            type = TestItemType.Test;
+                            name = info["testcontainername"];
+                            name_postfix = " (data iteration #" + info["testcasedataiteration"] + ")";
+                            attributes.Add(new ItemAttribute { Value = "Test Case" });
+                            break;
+                        case "testmodule":
+                            type = TestItemType.Step;
+                            name = info["modulename"];
+                            attributes.Add(new ItemAttribute { Value = "Module" });
+                            if (isSetUp(name))
+                            {
+                                attributes.Add(new ItemAttribute { Value = "Setup" });
+                                type = TestItemType.BeforeMethod;
+                            }
+                            if (isTearDown(name))
+                            {
+                                attributes.Add(new ItemAttribute { Value = "TearDown" });
+                                type = TestItemType.AfterMethod;
+                            }
+                            break;
+                    }
+                
                     if (TestSuite.CurrentTestContainer != null && TestSuite.CurrentTestContainer.GetType().IsSubclassOf(typeof(TestSuiteEntry)))
                     {
                         TestSuiteEntry container = (TestSuiteEntry)TestSuite.CurrentTestContainer;
