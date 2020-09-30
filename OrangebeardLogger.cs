@@ -8,16 +8,6 @@
  * limitations under the License.
  */
 
-using Ranorex;
-using Ranorex.Core;
-using Ranorex.Core.Testing;
-using RanorexOrangebeardListener.Requests;
-using ReportPortal.Client;
-using ReportPortal.Client.Abstractions.Models;
-using ReportPortal.Client.Abstractions.Requests;
-using ReportPortal.Client.Abstractions.Responses;
-using ReportPortal.Shared.Extensibility;
-using ReportPortal.Shared.Reporter;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -25,14 +15,24 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Ranorex;
+using Ranorex.Core;
+using Ranorex.Core.Testing;
+using RanorexOrangebeardListener.Requests;
+using ReportPortal.Client;
+using ReportPortal.Client.Abstractions.Models;
+using ReportPortal.Client.Abstractions.Requests;
+using ReportPortal.Shared.Extensibility;
+using ReportPortal.Shared.Reporter;
+using DateTime = System.DateTime;
 
 namespace RanorexOrangebeardListener
 {
     public class OrangebeardLogger : IReportLogger
     {
-        private readonly Service orangebeard;
-        private ITestReporter currentReporter;
-        private LaunchReporter launchReporter;
+        private readonly Service _orangebeard;
+        private ITestReporter _currentReporter;
+        private LaunchReporter _launchReporter;
 
         public OrangebeardLogger()
         {
@@ -41,11 +41,12 @@ namespace RanorexOrangebeardListener
             CheckEnvVar("orangebeard.project");
             CheckEnvVar("orangebeard.testrun");
 
-            string token = Environment.GetEnvironmentVariable("orangebeard.token");
-            string endpoint = Environment.GetEnvironmentVariable("orangebeard.endpoint");
-            string project = Environment.GetEnvironmentVariable("orangebeard.project");
+            var token = Environment.GetEnvironmentVariable("orangebeard.token");
+            var endpoint = Environment.GetEnvironmentVariable("orangebeard.endpoint");
+            var project = Environment.GetEnvironmentVariable("orangebeard.project");
 
-            orangebeard = new Service(new Uri(endpoint), project, token);
+            // ReSharper disable once AssignNullToNotNullAttribute
+            _orangebeard = new Service(new Uri(endpoint), project, token);
         }
 
 
@@ -53,292 +54,272 @@ namespace RanorexOrangebeardListener
 
         public void Start()
         {
-            launchReporter = new LaunchReporter(orangebeard, null, null, new ExtensionManager());
-            launchReporter.Start(new StartLaunchRequest
+            _launchReporter = new LaunchReporter(_orangebeard, null, null, new ExtensionManager());
+            _launchReporter.Start(new StartLaunchRequest
             {
-                StartTime = System.DateTime.UtcNow,
-                Name = Environment.GetEnvironmentVariable("orangebeard.testrun"),
-
+                StartTime = DateTime.UtcNow,
+                Name = Environment.GetEnvironmentVariable("orangebeard.testrun")
             });
         }
 
         public void End()
         {
             Report.SystemSummary();
-            if (currentReporter != null)
-            {
-                while (currentReporter.ParentTestReporter != null)
+            if (_currentReporter != null)
+                while (_currentReporter.ParentTestReporter != null)
                 {
-                    currentReporter.Finish(new FinishTestItemRequest
+                    _currentReporter.Finish(new FinishTestItemRequest
                     {
                         Status = Status.Interrupted,
-                        EndTime = System.DateTime.UtcNow
+                        EndTime = DateTime.UtcNow
                     });
-                    currentReporter.Sync();
-                    currentReporter = currentReporter.ParentTestReporter;
+                    _currentReporter.Sync();
+                    _currentReporter = _currentReporter.ParentTestReporter;
                 }
-            }
 
-            launchReporter.Finish(new FinishLaunchRequest { EndTime = System.DateTime.UtcNow });
-            launchReporter.Sync();
+            _launchReporter.Finish(new FinishLaunchRequest {EndTime = DateTime.UtcNow});
+            _launchReporter.Sync();
         }
 
-        public void LogData(ReportLevel level, string category, string message, object data, IDictionary<string, string> metaInfos)
+        public void LogData(ReportLevel level, string category, string message, object data,
+            IDictionary<string, string> metaInfos)
         {
-            //Currently only screenshot attachments are supported. Can ranorex attach anything else?
-            byte[] dataBytes = null;
-            if (data is Bitmap)
+            //Currently only screenshot attachments are supported. Can Ranorex attach anything else?
+            if (!(data is Image)) return;
+
+            var img = (Image) data;
+            using (var ms = new MemoryStream())
             {
-                dataBytes = ByteArrayForImage((Bitmap)data);
+                img.Save(ms, ImageFormat.Bmp);
+                var dataBytes = ms.ToArray();
                 LogToOrangebeard(level, category, message, dataBytes, metaInfos);
             }
         }
 
-        public void LogText(ReportLevel level, string category, string message, bool escape, IDictionary<string, string> metaInfos)
+        public void LogText(ReportLevel level, string category, string message, bool escape,
+            IDictionary<string, string> metaInfos)
         {
             if (category.Equals("System Summary", StringComparison.InvariantCultureIgnoreCase))
-            {
-                updateTestrunWithSystemInfo(message);
-            }
-            else if (!handlePotentialStartFinishLog(metaInfos))
-            {
+                UpdateTestrunWithSystemInfo(message);
+            else if (!HandlePotentialStartFinishLog(metaInfos))
                 LogToOrangebeard(level, category, message, null, metaInfos);
-            }
         }
 
-        private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData, IDictionary<string, string> metaInfos)
+        private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData,
+            IDictionary<string, string> metaInfos)
         {
-            CreateLogItemRequest rq = CreateLogItemRequest(category, message, attachmentData, DetermineLogLevel(level.Name));
+            if (category == null)
+            {
+                category = string.Empty;
+            }
+            var logRq = new CreateLogItemRequest
+            {
+                Time = DateTime.UtcNow,
+                Level = DetermineLogLevel(level.Name),
+                Text = "[" + category + "]: " + message
+            };
+            if (attachmentData != null) logRq.Attach = new LogItemAttach("image/jpeg", attachmentData);
+
+
             CreateLogItemRequest metaRq = null;
             if (metaInfos.Count >= 1)
             {
-                metaRq = CreateMetaDataLogItemRequest(metaInfos);
+                var meta = new StringBuilder();
+                meta.Append("Meta Info:").Append("\r\n");
+
+                foreach (var key in metaInfos.Keys)
+                    meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
+
+                metaRq = new CreateLogItemRequest
+                {
+                    Time = DateTime.UtcNow,
+                    Level = LogLevel.Debug,
+                    Text = meta.ToString()
+                };
             }
 
-            if (currentReporter == null)
+            if (_currentReporter == null)
             {
-                launchReporter.Log(rq);
-                if (metaRq != null) { launchReporter.Log(metaRq); }
+                _launchReporter.Log(logRq);
+                if (metaRq != null) _launchReporter.Log(metaRq);
             }
             else
             {
-                currentReporter.Log(rq);
-                if (metaRq != null) { currentReporter.Log(metaRq); }
+                _currentReporter.Log(logRq);
+                if (metaRq != null) _currentReporter.Log(metaRq);
             }
         }
 
-        private bool handlePotentialStartFinishLog(IDictionary<string, string> info)
+        private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
-            if (info.ContainsKey("activity"))
+            if (!info.ContainsKey("activity")) return false;
+
+            var type = TestItemType.Step;
+            var name = "";
+            var namePostfix = "";
+            var description = "";
+
+            var attributes = new List<ItemAttribute>();
+
+            //If there is no result key, we need to start an item
+            if (!info.ContainsKey("result"))
             {
-                TestItemType type = TestItemType.Step;
-                string name = "";
-                string name_postfix = "";
-                string description = "";
-
-                TestSuiteEntry entry;
-
-                List<ItemAttribute> attributes = new List<ItemAttribute>();
-
-                //If ther is no result key, we need to start an item
-                if (!info.ContainsKey("result"))
+                switch (info["activity"])
                 {
-                    switch (info["activity"])
-                    {
-                        case "testsuite":
-                            TestSuite suite = (TestSuite)TestSuite.Current;
+                    case "testsuite":
+                        var suite = (TestSuite) TestSuite.Current;
+                        type = TestItemType.Suite;
+                        name = info["modulename"];
+                        attributes.Add(new ItemAttribute {Value = "Suite"});
+                        description = suite.Children.First().Comment;
+                        break;
+
+                    case "testcontainer":
+                        name = info["testcontainername"];
+                        if (TestSuite.CurrentTestContainer.IsSmartFolder)
+                        {
                             type = TestItemType.Suite;
-                            name = info["modulename"];
-                            attributes.Add(new ItemAttribute { Value = "Suite" });
-                            description = suite.Children.First().Comment;
-                            break;
-
-                        case "testcontainer":
-                            entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
-                            name = info["testcontainername"];
-                            if (TestSuite.CurrentTestContainer.IsSmartFolder)
-                            {
-                                type = TestItemType.Suite;
-                                attributes.Add(new ItemAttribute { Value = "Smart folder" });
-                            }
-                            else
-                            {
-                                type = TestItemType.Test;
-                                attributes.Add(new ItemAttribute { Value = "Test Case" });
-                            }
-                            description = entry.Comment;
-                            break;
-
-                        case "smartfolder_dataiteration":
-                            entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
-                            type = TestItemType.Suite;
-                            name = info["testcontainername"];
-                            name_postfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
-                            attributes.Add(new ItemAttribute { Value = "Smart folder" });
-                            description = entry.Comment;
-                            break;
-
-                        case "testcase_dataiteration":
-                            entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
+                            attributes.Add(new ItemAttribute {Value = "Smart folder"});
+                        }
+                        else
+                        {
                             type = TestItemType.Test;
-                            name = info["testcontainername"];
-                            name_postfix = " (data iteration #" + info["testcasedataiteration"] + ")";
-                            attributes.Add(new ItemAttribute { Value = "Test Case" });
-                            description = entry.Comment;
-                            break;
+                            attributes.Add(new ItemAttribute {Value = "Test Case"});
+                        }
 
-                        case "testmodule":
-                            type = TestItemType.Step;
-                            name = info["modulename"];
-                            attributes.Add(new ItemAttribute { Value = "Module" });
-                            TestModuleLeaf currentLeaf = (TestModuleLeaf)TestModuleLeaf.Current;
-                            if (currentLeaf.Parent.GetType() == typeof(ModuleGroupNode))
-                            {
-                                attributes.Add(new ItemAttribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
-                            }
-                            if (currentLeaf.IsDescendantOfSetupNode)
-                            {
-                                attributes.Add(new ItemAttribute { Value = "Setup" });
-                                type = TestItemType.BeforeMethod;
-                            }
-                            if (currentLeaf.IsDescendantOfTearDownNode)
-                            {
-                                attributes.Add(new ItemAttribute { Value = "TearDown" });
-                                type = TestItemType.AfterMethod;
-                            }
-                            description = currentLeaf.Comment;
-                            break;
-                    }
+                        description = DescriptionForCurrentContainer();
+                        break;
 
-                    StartTestItemRequest rq = new StartTestItemRequest
-                    {
-                        StartTime = System.DateTime.UtcNow,
-                        Type = type,
-                        Name = name + name_postfix,
-                        Description = description,
-                        Attributes = attributes
-                    };
+                    case "smartfolder_dataiteration":
+                        type = TestItemType.Suite;
+                        name = info["testcontainername"];
+                        namePostfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
+                        attributes.Add(new ItemAttribute {Value = "Smart folder"});
+                        description = DescriptionForCurrentContainer();
+                        break;
 
-                    currentReporter = currentReporter == null ? launchReporter.StartChildTestReporter(rq) : currentReporter.StartChildTestReporter(rq);
+                    case "testcase_dataiteration":
+                        type = TestItemType.Test;
+                        name = info["testcontainername"];
+                        namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
+                        attributes.Add(new ItemAttribute {Value = "Test Case"});
+                        description = DescriptionForCurrentContainer();
+                        break;
+
+                    case "testmodule":
+                        type = TestItemType.Step;
+                        name = info["modulename"];
+                        attributes.Add(new ItemAttribute {Value = "Module"});
+                        var currentLeaf = (TestModuleLeaf) TestModuleLeaf.Current;
+                        if (currentLeaf.Parent is ModuleGroupNode)
+                            attributes.Add(new ItemAttribute
+                                {Key = "Module Group", Value = currentLeaf.Parent.DisplayName});
+                        if (currentLeaf.IsDescendantOfSetupNode)
+                        {
+                            attributes.Add(new ItemAttribute {Value = "Setup"});
+                            type = TestItemType.BeforeMethod;
+                        }
+
+                        if (currentLeaf.IsDescendantOfTearDownNode)
+                        {
+                            attributes.Add(new ItemAttribute {Value = "TearDown"});
+                            type = TestItemType.AfterMethod;
+                        }
+
+                        description = currentLeaf.Comment;
+                        break;
                 }
-                else
+
+                var rq = new StartTestItemRequest
                 {
-                    currentReporter.Finish(new FinishTestItemRequest
-                    {
-                        EndTime = System.DateTime.UtcNow,
-                        Status = determineStatus(info["result"])
-                    });
-                    currentReporter = currentReporter.ParentTestReporter;
-                }
-                return true;
+                    StartTime = DateTime.UtcNow,
+                    Type = type,
+                    Name = name + namePostfix,
+                    Description = description,
+                    Attributes = attributes
+                };
+
+                _currentReporter = _currentReporter == null
+                    ? _launchReporter.StartChildTestReporter(rq)
+                    : _currentReporter.StartChildTestReporter(rq);
             }
-            return false;
-        }
-
-        private Status determineStatus(string statusStr)
-        {
-            Status status;
-            switch (statusStr.ToLower())
+            else
             {
-                case "success":
-                    status = Status.Passed;
-                    break;
-                case "ignored":
-                    status = Status.Skipped;
-                    break;
-                default:
-                    status = Status.Failed;
-                    break;
-            }
-            return status;
-        }
+                Status status;
 
-        private void updateTestrunWithSystemInfo(string message)
-        {
-            LaunchResponse launchInfo = orangebeard.Launch.GetAsync(launchReporter.Info.Uuid).GetAwaiter().GetResult();
-
-            List<ItemAttribute> attrs = new List<ItemAttribute>();
-            string[] launchAttrEntries = message.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-
-            foreach (string entry in launchAttrEntries)
-            {
-                string[] attr = entry.Split(new[] { ": " }, StringSplitOptions.None);
-                if (attr.Length > 1 && !attr[0].Contains("displays") && !attr[0].Contains("CPUs") && !attr[0].Contains("Ranorex version") && !attr[0].Contains("Memory") && !attr[0].Contains("Runtime version"))
+                switch (info["result"].ToLower())
                 {
-                    attrs.Add(new ItemAttribute { Key = attr[0], Value = attr[1] });
+                    case "success":
+                        status = Status.Passed;
+                        break;
+                    case "ignored":
+                        status = Status.Skipped;
+                        break;
+                    default:
+                        status = Status.Failed;
+                        break;
                 }
+                
+
+                _currentReporter.Finish(new FinishTestItemRequest
+                {
+                    EndTime = DateTime.UtcNow,
+                    Status = status
+                });
+
+                _currentReporter = _currentReporter.ParentTestReporter;
             }
 
-            orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateOrangebeardLaunchRequest { Attributes = attrs });
+            return true;
         }
 
-        private string ConstructMetaDataLogMessage(IDictionary<string, string> metaInfos)
+        private string DescriptionForCurrentContainer()
         {
-            var meta = new StringBuilder();
-            meta.Append("Meta Info:").Append("\r\n");
-
-            foreach (var key in metaInfos.Keys)
-                meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
-
-            return meta.ToString();
+            var entry = (TestSuiteEntry) TestSuite.CurrentTestContainer;
+            return entry.Comment;
         }
+
+
+        private void UpdateTestrunWithSystemInfo(string message)
+        {
+            var launchInfo = _orangebeard.Launch.GetAsync(_launchReporter.Info.Uuid).GetAwaiter().GetResult();
+
+            var attrs = new List<ItemAttribute>();
+            var launchAttrEntries = message.Split(new[] {"\r\n", "\r", "\n"}, StringSplitOptions.None);
+
+            foreach (var entry in launchAttrEntries)
+            {
+                var attr = entry.Split(new[] {": "}, StringSplitOptions.None);
+                if (attr.Length > 1 &&
+                    !attr[0].Contains("displays") &&
+                    !attr[0].Contains("CPUs") &&
+                    !attr[0].Contains("Ranorex version") &&
+                    !attr[0].Contains("Memory") &&
+                    !attr[0].Contains("Runtime version"))
+                    attrs.Add(new ItemAttribute {Key = attr[0], Value = attr[1]});
+            }
+
+            _orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateOrangebeardLaunchRequest {Attributes = attrs});
+        }
+
         private static LogLevel DetermineLogLevel(string levelStr)
         {
             LogLevel level;
             var logLevel = char.ToUpper(levelStr[0]) + levelStr.Substring(1);
             if (Enum.IsDefined(typeof(LogLevel), logLevel))
-            {
-                level = (LogLevel)Enum.Parse(typeof(LogLevel), logLevel);
-            }
+                level = (LogLevel) Enum.Parse(typeof(LogLevel), logLevel);
             else if (logLevel.Equals("Failure", StringComparison.InvariantCultureIgnoreCase))
-            {
                 level = LogLevel.Error;
-            }
             else if (logLevel.Equals("Warn", StringComparison.InvariantCultureIgnoreCase))
-            {
                 level = LogLevel.Warning;
-            }
             else
-            {
                 level = LogLevel.Info;
-            }
             return level;
-        }
-        private CreateLogItemRequest CreateLogItemRequest(string category, string message, byte[] data, LogLevel level)
-        {
-            CreateLogItemRequest rq = new CreateLogItemRequest();
-            rq.Time = System.DateTime.UtcNow;
-            rq.Level = level;
-            rq.Text = "[" + category + "]: " + message;
-
-            if (data != null) rq.Attach = new LogItemAttach("image/jpeg", data);
-            return rq;
-        }
-
-        private CreateLogItemRequest CreateMetaDataLogItemRequest(IDictionary<string, string> metaInfo)
-        {
-
-            CreateLogItemRequest rq = new CreateLogItemRequest();
-            rq.Time = System.DateTime.UtcNow;
-            rq.Level = LogLevel.Debug;
-            rq.Text = ConstructMetaDataLogMessage(metaInfo);
-
-            return rq;
-        }
-
-
-        private static byte[] ByteArrayForImage(Bitmap data)
-        {
-            using (MemoryStream ms = new MemoryStream())
-            {
-                data.Save(ms, ImageFormat.Bmp);
-                return ms.ToArray();
-            }
         }
 
         private static void CheckEnvVar(string name)
         {
-            if (Environment.GetEnvironmentVariable(name) == null) { throw new MissingEnvironmentVariableException(name); }
+            if (Environment.GetEnvironmentVariable(name) == null) throw new MissingEnvironmentVariableException(name);
         }
     }
 }

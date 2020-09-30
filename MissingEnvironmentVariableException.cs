@@ -21,7 +21,7 @@ namespace RanorexOrangebeardListener
         }
 
         public MissingEnvironmentVariableException(string varName)
-            : base(string.Format("Missing Configuration. No variable named: ", varName))
+            : base($"Missing Configuration. No variable named: {varName}")
         {
         }
 
