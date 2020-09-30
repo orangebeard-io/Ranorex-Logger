@@ -192,6 +192,10 @@ namespace RanorexOrangebeardListener
                             name = info["modulename"];
                             attributes.Add(new ItemAttribute { Value = "Module" });
                             TestModuleLeaf currentLeaf = (TestModuleLeaf)TestModuleLeaf.Current;
+                            if (currentLeaf.Parent.GetType() == typeof(ModuleGroupNode))
+                            {
+                                attributes.Add(new ItemAttribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
+                            }
                             if (currentLeaf.IsDescendantOfSetupNode)
                             {
                                 attributes.Add(new ItemAttribute { Value = "Setup" });
