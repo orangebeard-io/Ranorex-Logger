@@ -45,7 +45,3 @@
 ```
 
 Now run your test as you normally do and see the results fly in to Orangebeard!
- 
-## Limitations
- - Set Up and teardown steps are only marked as such when they are inside a test case or smart folder
- - No display of module groups (the underlying modules are reported), as Ranorex does not expose them in a way we can corellate between group and current log info
