@@ -10,7 +10,6 @@
 
 using Ranorex;
 using Ranorex.Core;
-using Ranorex.Core.Reporting;
 using Ranorex.Core.Testing;
 using RanorexOrangebeardListener.Requests;
 using ReportPortal.Client;
@@ -24,6 +23,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace RanorexOrangebeardListener
@@ -33,8 +33,6 @@ namespace RanorexOrangebeardListener
         private readonly Service orangebeard;
         private ITestReporter currentReporter;
         private LaunchReporter launchReporter;
-
-        private List<CaseInsensitiveString> describedSteps = new List<CaseInsensitiveString>();
 
         public OrangebeardLogger()
         {
@@ -97,7 +95,7 @@ namespace RanorexOrangebeardListener
         }
 
         public void LogText(ReportLevel level, string category, string message, bool escape, IDictionary<string, string> metaInfos)
-        {            
+        {
             if (category.Equals("System Summary", StringComparison.InvariantCultureIgnoreCase))
             {
                 updateTestrunWithSystemInfo(message);
@@ -138,6 +136,8 @@ namespace RanorexOrangebeardListener
                 string name_postfix = "";
                 string description = "";
 
+                TestSuiteEntry entry;
+
                 List<ItemAttribute> attributes = new List<ItemAttribute>();
 
                 //If ther is no result key, we need to start an item
@@ -146,11 +146,15 @@ namespace RanorexOrangebeardListener
                     switch (info["activity"])
                     {
                         case "testsuite":
+                            TestSuite suite = (TestSuite)TestSuite.Current;
                             type = TestItemType.Suite;
                             name = info["modulename"];
                             attributes.Add(new ItemAttribute { Value = "Suite" });
+                            description = suite.Children.First().Comment;
                             break;
+
                         case "testcontainer":
+                            entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
                             name = info["testcontainername"];
                             if (TestSuite.CurrentTestContainer.IsSmartFolder)
                             {
@@ -162,41 +166,46 @@ namespace RanorexOrangebeardListener
                                 type = TestItemType.Test;
                                 attributes.Add(new ItemAttribute { Value = "Test Case" });
                             }
+                            description = entry.Comment;
                             break;
+
                         case "smartfolder_dataiteration":
+                            entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
                             type = TestItemType.Suite;
                             name = info["testcontainername"];
-                            name_postfix = " (data iteration #" + info["smartfolderdataiteration "] + ")";
+                            name_postfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
                             attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                            description = entry.Comment;
                             break;
+
                         case "testcase_dataiteration":
+                            entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
                             type = TestItemType.Test;
                             name = info["testcontainername"];
                             name_postfix = " (data iteration #" + info["testcasedataiteration"] + ")";
                             attributes.Add(new ItemAttribute { Value = "Test Case" });
+                            description = entry.Comment;
                             break;
+
                         case "testmodule":
                             type = TestItemType.Step;
                             name = info["modulename"];
                             attributes.Add(new ItemAttribute { Value = "Module" });
-                            if (isSetUp(name))
+                            TestModuleLeaf currentLeaf = (TestModuleLeaf)TestModuleLeaf.Current;
+                            if (currentLeaf.IsDescendantOfSetupNode)
                             {
                                 attributes.Add(new ItemAttribute { Value = "Setup" });
                                 type = TestItemType.BeforeMethod;
                             }
-                            if (isTearDown(name))
+                            if (currentLeaf.IsDescendantOfTearDownNode)
                             {
                                 attributes.Add(new ItemAttribute { Value = "TearDown" });
                                 type = TestItemType.AfterMethod;
                             }
+                            description = currentLeaf.Comment;
                             break;
                     }
-                
-                    if (TestSuite.CurrentTestContainer != null && TestSuite.CurrentTestContainer.GetType().IsSubclassOf(typeof(TestSuiteEntry)))
-                    {
-                        TestSuiteEntry container = (TestSuiteEntry)TestSuite.CurrentTestContainer;
-                        description = getDescription(container, name);
-                    }
+
                     StartTestItemRequest rq = new StartTestItemRequest
                     {
                         StartTime = System.DateTime.UtcNow,
@@ -222,29 +231,6 @@ namespace RanorexOrangebeardListener
             return false;
         }
 
-        private string getDescription(TestSuiteEntry container, string name)
-        {
-            string result = null;
-
-            if (!describedSteps.Contains(container.Id) && container.DisplayName.Equals(name))
-            {
-                describedSteps.Add(container.Id);
-                result = container.Comment;
-            }
-            else if (container.GetType().IsSubclassOf(typeof(TestSuiteEntryContainer)))
-            {
-                TestSuiteEntryContainer ct = (TestSuiteEntryContainer)container;
-                foreach (TestSuiteEntry child in ct.Children)
-                {
-                    if (child.GetType().IsSubclassOf(typeof(TestSuiteEntry)) && result == null)
-                    {
-                        result = getDescription(child, name);
-                    }
-                }
-            }
-            return result;
-        }
-
         private Status determineStatus(string statusStr)
         {
             Status status;
@@ -263,48 +249,6 @@ namespace RanorexOrangebeardListener
             return status;
         }
 
-        private bool isSetUp(string moduleName)
-        {
-            if (TestSuite.CurrentTestContainer != null &&
-                TestSuite.CurrentTestContainer.GetType().IsSubclassOf(typeof(TestSuiteEntryContainer)))
-            {
-                ITestSuite s = TestSuite.Current;
-                TestCaseNode t = (TestCaseNode)TestSuite.CurrentTestContainer;
-                if (t.SetupNode != null)
-                {
-                    foreach (TestSuiteEntry child in t.SetupNode.Children)
-                    {
-                        if (child.DisplayName.Equals(moduleName))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        private bool isTearDown(string moduleName)
-        {
-            if (TestSuite.CurrentTestContainer != null &&
-                (TestSuite.CurrentTestContainer.GetType() == typeof(TestCaseNode) ||
-                TestSuite.CurrentTestContainer.GetType().IsSubclassOf(typeof(TestCaseNode))))
-            {
-                TestCaseNode t = (TestCaseNode)TestSuite.CurrentTestContainer;
-                if (t.TearDownNode != null)
-                {
-                    foreach (TestSuiteEntry child in t.TearDownNode.Children)
-                    {
-                        if (child.DisplayName.Equals(moduleName))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
         private void updateTestrunWithSystemInfo(string message)
         {
             LaunchResponse launchInfo = orangebeard.Launch.GetAsync(launchReporter.Info.Uuid).GetAwaiter().GetResult();
@@ -320,7 +264,7 @@ namespace RanorexOrangebeardListener
                     attrs.Add(new ItemAttribute { Key = attr[0], Value = attr[1] });
                 }
             }
-            
+
             orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateOrangebeardLaunchRequest { Attributes = attrs });
         }
 
