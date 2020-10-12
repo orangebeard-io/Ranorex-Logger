@@ -25,7 +25,6 @@ using ReportPortal.Client.Abstractions.Requests;
 using ReportPortal.Shared.Extensibility;
 using ReportPortal.Shared.Reporter;
 using DateTime = System.DateTime;
-using Encoder = System.Drawing.Imaging.Encoder;
 
 namespace RanorexOrangebeardListener
 {
