@@ -25,6 +25,7 @@ using ReportPortal.Client.Abstractions.Requests;
 using ReportPortal.Shared.Extensibility;
 using ReportPortal.Shared.Reporter;
 using DateTime = System.DateTime;
+using Encoder = System.Drawing.Imaging.Encoder;
 
 namespace RanorexOrangebeardListener
 {
@@ -90,7 +91,7 @@ namespace RanorexOrangebeardListener
             var img = (Image) data;
             using (var ms = new MemoryStream())
             {
-                img.Save(ms, ImageFormat.Bmp);
+                img.Save(ms, ImageFormat.Jpeg);
                 var dataBytes = ms.ToArray();
                 LogToOrangebeard(level, category, message, dataBytes, metaInfos);
             }
@@ -124,8 +125,7 @@ namespace RanorexOrangebeardListener
             CreateLogItemRequest metaRq = null;
             if (metaInfos.Count >= 1)
             {
-                var meta = new StringBuilder();
-                meta.Append("Meta Info:").Append("\r\n");
+                var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
 
                 foreach (var key in metaInfos.Keys)
                     meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30517.126
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RanorexOrangebeardListener", "RanorexOrangebeardListener.csproj", "{85ED5D77-1A79-43C9-BDE0-2701E7B3C4EA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListener", "RanorexOrangebeardListener.csproj", "{85ED5D77-1A79-43C9-BDE0-2701E7B3C4EA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
