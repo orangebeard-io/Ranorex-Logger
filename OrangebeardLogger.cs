@@ -15,19 +15,20 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Orangebeard.Client;
+using Orangebeard.Client.Abstractions.Models;
+using Orangebeard.Client.Abstractions.Requests;
+using Orangebeard.Shared.Extensibility;
+using Orangebeard.Shared.Reporter;
 using Ranorex;
 using Ranorex.Core;
+using Ranorex.Core.Reporting;
 using Ranorex.Core.Testing;
-using RanorexOrangebeardListener.Requests;
-using ReportPortal.Client;
-using ReportPortal.Client.Abstractions.Models;
-using ReportPortal.Client.Abstractions.Requests;
-using ReportPortal.Shared.Extensibility;
-using ReportPortal.Shared.Reporter;
 using DateTime = System.DateTime;
 
 namespace RanorexOrangebeardListener
 {
+    // ReSharper disable once UnusedMember.Global
     public class OrangebeardLogger : IReportLogger
     {
         private readonly Service _orangebeard;
@@ -54,11 +55,19 @@ namespace RanorexOrangebeardListener
 
         public void Start()
         {
+            ItemAttribute skippedIssue = new ItemAttribute
+            {
+                IsSystem = true,
+                Key = "skippedIssue",
+                Value = "false"
+            };
+
             _launchReporter = new LaunchReporter(_orangebeard, null, null, new ExtensionManager());
             _launchReporter.Start(new StartLaunchRequest
             {
                 StartTime = DateTime.UtcNow,
-                Name = Environment.GetEnvironmentVariable("orangebeard.testrun")
+                Name = Environment.GetEnvironmentVariable("orangebeard.testrun"),
+                Attributes = new List<ItemAttribute>() { skippedIssue }
             });
         }
 
@@ -256,6 +265,7 @@ namespace RanorexOrangebeardListener
                         break;
                     default:
                         status = Status.Failed;
+                        LogErrorScreenshots(ActivityStack.Current.Children);
                         break;
                 }
                 
@@ -272,7 +282,35 @@ namespace RanorexOrangebeardListener
             return true;
         }
 
-        private string DescriptionForCurrentContainer()
+        private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
+        {
+            foreach (var reportItem in reportItems)
+            {
+                if (reportItem.GetType() == typeof(ReportItem))
+                {
+                    var item = (ReportItem)reportItem;
+                    if ((item.Level == ReportLevel.Error || item.Level == ReportLevel.Failure) && item.ScreenshotFileName.Length > 0)
+                    {
+                        LogData(item.Level, "Screenshot", item.Message, GetImageFromFile(item.ScreenshotFileName), new IndexedDictionary<string, string>());
+                    }
+                }
+                else if (reportItem.GetType() == typeof(Activity) || reportItem.GetType().IsSubclassOf(typeof(Activity)))
+                {
+                    LogErrorScreenshots(((Activity) reportItem).Children);
+                }
+            }
+        }
+
+        private static Image GetImageFromFile(string itemScreenshotFileName)
+        {
+            var reportDir = TestSuite.Current.ReportSettings.ReportDirectoryName;
+
+            return Image.FromFile(Directory.GetCurrentDirectory() +  
+                                     "//" + reportDir + 
+                                     "//" + itemScreenshotFileName);
+        }
+
+        private static string DescriptionForCurrentContainer()
         {
             var entry = (TestSuiteEntry) TestSuite.CurrentTestContainer;
             return entry.Comment;
@@ -283,22 +321,21 @@ namespace RanorexOrangebeardListener
         {
             var launchInfo = _orangebeard.Launch.GetAsync(_launchReporter.Info.Uuid).GetAwaiter().GetResult();
 
-            var attrs = new List<ItemAttribute>();
             var launchAttrEntries = message.Split(new[] {"\r\n", "\r", "\n"}, StringSplitOptions.None);
 
-            foreach (var entry in launchAttrEntries)
-            {
-                var attr = entry.Split(new[] {": "}, StringSplitOptions.None);
-                if (attr.Length > 1 &&
-                    !attr[0].Contains("displays") &&
-                    !attr[0].Contains("CPUs") &&
-                    !attr[0].Contains("Ranorex version") &&
-                    !attr[0].Contains("Memory") &&
-                    !attr[0].Contains("Runtime version"))
-                    attrs.Add(new ItemAttribute {Key = attr[0], Value = attr[1]});
-            }
+            var attrs = (
+                from entry in launchAttrEntries 
+                select entry.Split(new[] {": "}, StringSplitOptions.None) 
+                into attr 
+                where attr.Length > 1 && 
+                      !attr[0].Contains("displays") && 
+                      !attr[0].Contains("CPUs") && 
+                      !attr[0].Contains("Ranorex version") && 
+                      !attr[0].Contains("Memory") && 
+                      !attr[0].Contains("Runtime version") 
+                select new ItemAttribute {Key = attr[0], Value = attr[1]}).ToList();
 
-            _orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateOrangebeardLaunchRequest {Attributes = attrs});
+            _orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateLaunchRequest {Attributes = attrs});
         }
 
         private static LogLevel DetermineLogLevel(string levelStr)

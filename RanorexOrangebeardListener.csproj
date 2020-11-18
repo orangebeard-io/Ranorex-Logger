@@ -1,23 +1,25 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net462</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ReportPortal.Client" Version="3.0.0" />
-    <PackageReference Include="ReportPortal.Shared" Version="3.0.0" />
+    <Reference Include="Orangebeard.Client">
+      <HintPath>..\..\dotnet-client\src\Orangebeard.Client\bin\Debug\net45\Orangebeard.Client.dll</HintPath>
+    </Reference>
+    <Reference Include="PresentationFramework" />
+    <Reference Include="Ranorex.Core">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Ranorex.Libs.Util">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="PresentationFramework" />
-    <Reference Include="Ranorex.Core">
-      <HintPath>..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="Ranorex.Libs.Util">
-      <HintPath>..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Windows.Forms" />
+    <Folder Include="Requests\" />
   </ItemGroup>
 
 </Project>
