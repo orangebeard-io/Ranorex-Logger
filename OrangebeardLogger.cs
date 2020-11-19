@@ -18,6 +18,7 @@ using System.Text;
 using Orangebeard.Client;
 using Orangebeard.Client.Abstractions.Models;
 using Orangebeard.Client.Abstractions.Requests;
+using Orangebeard.Client.OrangebeardProperties;
 using Orangebeard.Shared.Extensibility;
 using Orangebeard.Shared.Reporter;
 using Ranorex;
@@ -31,25 +32,17 @@ namespace RanorexOrangebeardListener
     // ReSharper disable once UnusedMember.Global
     public class OrangebeardLogger : IReportLogger
     {
-        private readonly Service _orangebeard;
+        private readonly OrangebeardClient _orangebeard;
         private ITestReporter _currentReporter;
         private LaunchReporter _launchReporter;
+        private readonly OrangebeardConfiguration config;
 
         public OrangebeardLogger()
         {
-            CheckEnvVar("orangebeard.token");
-            CheckEnvVar("orangebeard.endpoint");
-            CheckEnvVar("orangebeard.project");
-            CheckEnvVar("orangebeard.testrun");
-
-            var token = Environment.GetEnvironmentVariable("orangebeard.token");
-            var endpoint = Environment.GetEnvironmentVariable("orangebeard.endpoint");
-            var project = Environment.GetEnvironmentVariable("orangebeard.project");
-
-            // ReSharper disable once AssignNullToNotNullAttribute
-            _orangebeard = new Service(new Uri(endpoint), project, token);
+            
+            config = new OrangebeardConfiguration();
+            _orangebeard = new OrangebeardClient(config);
         }
-
 
         public bool PreFilterMessages => false;
 
@@ -66,7 +59,7 @@ namespace RanorexOrangebeardListener
             _launchReporter.Start(new StartLaunchRequest
             {
                 StartTime = DateTime.UtcNow,
-                Name = Environment.GetEnvironmentVariable("orangebeard.testrun"),
+                Name = config.ProjectName,
                 Attributes = new List<ItemAttribute>() { skippedIssue }
             });
         }
@@ -319,8 +312,6 @@ namespace RanorexOrangebeardListener
 
         private void UpdateTestrunWithSystemInfo(string message)
         {
-            var launchInfo = _orangebeard.Launch.GetAsync(_launchReporter.Info.Uuid).GetAwaiter().GetResult();
-
             var launchAttrEntries = message.Split(new[] {"\r\n", "\r", "\n"}, StringSplitOptions.None);
 
             var attrs = (
@@ -335,7 +326,7 @@ namespace RanorexOrangebeardListener
                       !attr[0].Contains("Runtime version") 
                 select new ItemAttribute {Key = attr[0], Value = attr[1]}).ToList();
 
-            _orangebeard.Launch.UpdateAsync(launchInfo.Id, new UpdateLaunchRequest {Attributes = attrs});
+            _launchReporter.Update(new UpdateLaunchRequest { Attributes = attrs });
         }
 
         private static LogLevel DetermineLogLevel(string levelStr)
@@ -351,11 +342,6 @@ namespace RanorexOrangebeardListener
             else
                 level = LogLevel.Info;
             return level;
-        }
-
-        private static void CheckEnvVar(string name)
-        {
-            if (Environment.GetEnvironmentVariable(name) == null) throw new MissingEnvironmentVariableException(name);
         }
     }
 }
