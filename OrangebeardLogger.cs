@@ -59,7 +59,7 @@ namespace RanorexOrangebeardListener
             _launchReporter.Start(new StartLaunchRequest
             {
                 StartTime = DateTime.UtcNow,
-                Name = config.ProjectName,
+                Name = config.TestSetName,
                 Attributes = new List<ItemAttribute>() { skippedIssue }
             });
         }
