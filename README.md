@@ -25,18 +25,17 @@
 ## Build
  * Clone this repository
  * Open in a .Net IDE
- * Add ReportPortal.Client and ReportPortal.Shared dependencies from NuGet (both 3.0.0 version)
- * Build the DLL
+ * Reference the Orangebeard.Client DLL
+ * Build the Ranorex Logger DLL
 
 ## Install
 
  * Add your dll as a reference in your Ranorex Solution
  * Reference it in Program.cs `using RanorexOrangebeardListener;`
- * Add ReportPortal.Client and ReportPortal.Shared dependencies from NuGet (both 3.0.0 version) to your project - Yes, this Logger will also work with ReportPortal!
  * Attach the logger to your Ranorex report (environment vars can of course be set up elsewhere):
 ```cs
     Environment.SetEnvironmentVariable("orangebeard.endpoint", "https://your-instance.orangebeard.app");
-    Environment.SetEnvironmentVariable("orangebeard.token", "api-token-for-orangebeard");
+    Environment.SetEnvironmentVariable("orangebeard.accessToken", "api-token-for-orangebeard");
     Environment.SetEnvironmentVariable("orangebeard.project", "projectname");
     Environment.SetEnvironmentVariable("orangebeard.testrun", "Test Run name);
 
