@@ -35,13 +35,13 @@ namespace RanorexOrangebeardListener
         private readonly OrangebeardClient _orangebeard;
         private ITestReporter _currentReporter;
         private LaunchReporter _launchReporter;
-        private readonly OrangebeardConfiguration config;
+        private readonly OrangebeardConfiguration _config;
 
         public OrangebeardLogger()
         {
             
             config = new OrangebeardConfiguration();
-            _orangebeard = new OrangebeardClient(config);
+            _orangebeard = new OrangebeardClient(_config);
         }
 
         public bool PreFilterMessages => false;
@@ -59,7 +59,7 @@ namespace RanorexOrangebeardListener
             _launchReporter.Start(new StartLaunchRequest
             {
                 StartTime = DateTime.UtcNow,
-                Name = config.TestSetName,
+                Name = _config.TestSetName,
                 Attributes = new List<ItemAttribute>() { skippedIssue }
             });
         }

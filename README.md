@@ -38,10 +38,11 @@
     Environment.SetEnvironmentVariable("orangebeard.endpoint", "https://your-instance.orangebeard.app");
     Environment.SetEnvironmentVariable("orangebeard.token", "api-token-for-orangebeard");
     Environment.SetEnvironmentVariable("orangebeard.project", "projectname");
-    Environment.SetEnvironmentVariable("orangebeard.testrun", "Test Run name);
+    Environment.SetEnvironmentVariable("orangebeard.testrun", "Test Run name");
 
     OrangebeardLogger orangebeard = new OrangebeardLogger();
     Report.AttachLogger(orangebeard);
 ```
 
 Now run your test as you normally do and see the results fly in to Orangebeard!
+
