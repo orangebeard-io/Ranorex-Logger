@@ -40,7 +40,7 @@ namespace RanorexOrangebeardListener
         public OrangebeardLogger()
         {
             
-            config = new OrangebeardConfiguration();
+            _config = new OrangebeardConfiguration();
             _orangebeard = new OrangebeardClient(_config);
         }
 
