@@ -292,6 +292,7 @@ namespace RanorexOrangebeardListener
                         catch (Exception e)
                         {
                             LogToOrangebeard(item.Level, "Screenshot", "Exception getting screenshot: " + e.Message, null, new IndexedDictionary<string, string>());
+                            LogToOrangebeard(ReportLevel.Debug, "Exception detail", e.StackTrace, null, new IndexedDictionary<string, string>()) ;
                         }
                     }
                 }
