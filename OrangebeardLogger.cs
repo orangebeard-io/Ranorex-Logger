@@ -277,6 +277,7 @@ namespace RanorexOrangebeardListener
 
         private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
         {
+           
             foreach (var reportItem in reportItems)
             {
                 if (reportItem.GetType() == typeof(ReportItem))
@@ -284,15 +285,23 @@ namespace RanorexOrangebeardListener
                     var item = (ReportItem)reportItem;
                     if ((item.Level == ReportLevel.Error || item.Level == ReportLevel.Failure) && item.ScreenshotFileName.Length > 0)
                     {
-                        LogData(item.Level, "Screenshot", item.Message, GetImageFromFile(item.ScreenshotFileName), new IndexedDictionary<string, string>());
+                    try
+                        {
+                            LogData(item.Level, "Screenshot", item.Message, GetImageFromFile(item.ScreenshotFileName), new IndexedDictionary<string, string>());
+                        }
+                        catch (Exception e)
+                        {
+                            LogToOrangebeard(item.Level, "Screenshot", "Exception getting screenshot: " + e.Message, null, new IndexedDictionary<string, string>());
+                        }
                     }
                 }
                 else if (reportItem.GetType() == typeof(Activity) || reportItem.GetType().IsSubclassOf(typeof(Activity)))
                 {
-                    LogErrorScreenshots(((Activity) reportItem).Children);
+                    LogErrorScreenshots(((Activity)reportItem).Children);
                 }
             }
-        }
+        }         
+        
 
         private static Image GetImageFromFile(string itemScreenshotFileName)
         {
