@@ -305,7 +305,6 @@ namespace RanorexOrangebeardListener
         private static Image GetImageFromFile(string itemScreenshotFileName)
         {
             var reportDir = TestSuite.Current.ReportSettings.ReportDirectoryName;
-            var filePath = 
             return Image.FromFile(Directory.GetCurrentDirectory() +  
                                      "\\" + reportDir + 
                                      "\\" + itemScreenshotFileName);
