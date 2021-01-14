@@ -291,7 +291,7 @@ namespace RanorexOrangebeardListener
                         catch (Exception e)
                         {
                             LogToOrangebeard(item.Level, "Screenshot", "Exception getting screenshot: " + e.Message, null, new IndexedDictionary<string, string>());
-                            LogToOrangebeard(ReportLevel.Debug, "Exception detail", e.StackTrace, null, new IndexedDictionary<string, string>());
+                            LogToOrangebeard(ReportLevel.Debug, "Exception detail", e.GetType().ToString() + ": " + e.StackTrace, null, new IndexedDictionary<string, string>());
                         }
                     }
                 }
@@ -305,10 +305,10 @@ namespace RanorexOrangebeardListener
         private static Image GetImageFromFile(string itemScreenshotFileName)
         {
             var reportDir = TestSuite.Current.ReportSettings.ReportDirectoryName;
-
+            var filePath = 
             return Image.FromFile(Directory.GetCurrentDirectory() +  
-                                     "//" + reportDir + 
-                                     "//" + itemScreenshotFileName);
+                                     "\\" + reportDir + 
+                                     "\\" + itemScreenshotFileName);
         }
 
         private static string DescriptionForCurrentContainer()
