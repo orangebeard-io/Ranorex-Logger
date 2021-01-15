@@ -36,6 +36,7 @@ namespace RanorexOrangebeardListener
         private ITestReporter _currentReporter;
         private LaunchReporter _launchReporter;
         private readonly OrangebeardConfiguration _config;
+        private List<string> _reportedErrorScreenshots = new List<string>();
 
         public OrangebeardLogger()
         {
@@ -282,16 +283,31 @@ namespace RanorexOrangebeardListener
                 if (reportItem.GetType() == typeof(ReportItem))
                 {
                     var item = (ReportItem)reportItem;
-                    if ((item.Level == ReportLevel.Error || item.Level == ReportLevel.Failure) && item.ScreenshotFileName.Length > 0)
+                    if ((item.Level == ReportLevel.Error || item.Level == ReportLevel.Failure) 
+                        && item.ScreenshotFileName.Length > 0
+                        && !_reportedErrorScreenshots.Contains(item.ScreenshotFileName))
                     {
                     try
                         {
-                            LogData(item.Level, "Screenshot", item.Message, GetImageFromFile(item.ScreenshotFileName), new IndexedDictionary<string, string>());
+                            LogData(
+                                item.Level, 
+                                "Screenshot", 
+                                item.Message + "\r\n" +
+                                "Screenshot file name: " + item.ScreenshotFileName, 
+                                Image.FromFile(TestReport.ReportEnvironment.ReportFileDirectory + "\\" + item.ScreenshotFileName), 
+                                new IndexedDictionary<string, string>()
+                                );
+                            _reportedErrorScreenshots.Add(item.ScreenshotFileName);
                         }
                         catch (Exception e)
                         {
-                            LogToOrangebeard(item.Level, "Screenshot", "Exception getting screenshot: " + e.Message, null, new IndexedDictionary<string, string>());
-                            LogToOrangebeard(ReportLevel.Debug, "Exception detail", e.GetType().ToString() + ": " + e.StackTrace, null, new IndexedDictionary<string, string>());
+                            LogToOrangebeard(
+                                item.Level, 
+                                "Screenshot", "Exception getting screenshot: " + e.Message + "\r\n" +
+                                e.GetType().ToString() + ": " + e.StackTrace, 
+                                null, 
+                                new IndexedDictionary<string, string>()
+                                );
                         }
                     }
                 }
@@ -300,15 +316,7 @@ namespace RanorexOrangebeardListener
                     LogErrorScreenshots(((Activity)reportItem).Children);
                 }
             }
-        }         
-        
-        private static Image GetImageFromFile(string itemScreenshotFileName)
-        {
-            var reportDir = TestSuite.Current.ReportSettings.ReportDirectoryName;
-            return Image.FromFile(Directory.GetCurrentDirectory() +  
-                                     "\\" + reportDir + 
-                                     "\\" + itemScreenshotFileName);
-        }
+        }                 
 
         private static string DescriptionForCurrentContainer()
         {
