@@ -301,8 +301,13 @@ namespace RanorexOrangebeardListener
                         }
                         catch (Exception e)
                         {
-                            LogToOrangebeard(item.Level, "Screenshot", "Exception getting screenshot: " + e.Message, null, new IndexedDictionary<string, string>());
-                            LogToOrangebeard(ReportLevel.Debug, "Exception detail", e.GetType().ToString() + ": " + e.StackTrace, null, new IndexedDictionary<string, string>());
+                            LogToOrangebeard(
+                                item.Level, 
+                                "Screenshot", "Exception getting screenshot: " + e.Message + "\r\n" +
+                                e.GetType().ToString() + ": " + e.StackTrace, 
+                                null, 
+                                new IndexedDictionary<string, string>()
+                                );
                         }
                     }
                 }
