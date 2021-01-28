@@ -2,11 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net462</TargetFramework>
+    <Version>1.1.0.0</Version>
+    <AssemblyVersion>1.1.0.1</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="Orangebeard.Client">
-      <HintPath>bin\Debug\net462\Orangebeard.Client.dll</HintPath>
+      <HintPath>..\..\dotnet-client\src\Orangebeard.Client\bin\Debug\net45\Orangebeard.Client.dll</HintPath>
     </Reference>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">

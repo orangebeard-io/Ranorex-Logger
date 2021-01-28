@@ -41,7 +41,7 @@ namespace RanorexOrangebeardListener
         public OrangebeardLogger()
         {
             
-            _config = new OrangebeardConfiguration();
+            _config = new OrangebeardConfiguration().WithListenerIdentification("Ranorex Logger/" + typeof(OrangebeardLogger).Assembly.GetName().Version);
             _orangebeard = new OrangebeardClient(_config);
         }
 
