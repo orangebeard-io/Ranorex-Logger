@@ -14,6 +14,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Orangebeard.Client;
 using Orangebeard.Client.Abstractions.Models;
@@ -41,7 +42,7 @@ namespace RanorexOrangebeardListener
         public OrangebeardLogger()
         {
             
-            _config = new OrangebeardConfiguration();
+            _config = new OrangebeardConfiguration().WithListenerIdentification("Ranorex Logger/" + Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
             _orangebeard = new OrangebeardClient(_config);
         }
 
@@ -49,20 +50,15 @@ namespace RanorexOrangebeardListener
 
         public void Start()
         {
-            ItemAttribute skippedIssue = new ItemAttribute
+            if(_launchReporter == null)
             {
-                IsSystem = true,
-                Key = "skippedIssue",
-                Value = "false"
-            };
-
-            _launchReporter = new LaunchReporter(_orangebeard, null, null, new ExtensionManager());
-            _launchReporter.Start(new StartLaunchRequest
-            {
-                StartTime = DateTime.UtcNow,
-                Name = _config.TestSetName,
-                Attributes = new List<ItemAttribute>() { skippedIssue }
-            });
+                _launchReporter = new LaunchReporter(_orangebeard, null, null, new ExtensionManager());
+                _launchReporter.Start(new StartLaunchRequest
+                {
+                    StartTime = DateTime.UtcNow,
+                    Name = _config.TestSetName
+                });
+            }
         }
 
         public void End()
@@ -283,9 +279,7 @@ namespace RanorexOrangebeardListener
                 if (reportItem.GetType() == typeof(ReportItem))
                 {
                     var item = (ReportItem)reportItem;
-                    if ((item.Level == ReportLevel.Error || item.Level == ReportLevel.Failure) 
-                        && item.ScreenshotFileName.Length > 0
-                        && !_reportedErrorScreenshots.Contains(item.ScreenshotFileName))
+                    if (item.ScreenshotFileName != null && !_reportedErrorScreenshots.Contains(item.ScreenshotFileName))
                     {
                     try
                         {
