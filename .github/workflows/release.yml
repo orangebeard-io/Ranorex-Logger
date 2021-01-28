@@ -1,0 +1,34 @@
+name: Tag and Release
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+            
+    - name: Get Version info
+      uses: naminodarie/get-net-sdk-project-versions-action@v1
+      id: get-version
+      with:
+        proj-path: RanorexOrangebeardListener.csproj
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get-version.outputs.informational-version }}
+        release_name: Release ${{ steps.get-version.outputs.informational-version }}
+        draft: false
+        prerelease: false
+        
+    - name: Bump versions
+      uses: SiqiLu/dotnet-bump-version@master
+      with:
+        version_files: "**/*.csproj"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
