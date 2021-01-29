@@ -42,7 +42,11 @@ namespace RanorexOrangebeardListener
         public OrangebeardLogger()
         {
             
-            _config = new OrangebeardConfiguration().WithListenerIdentification("Ranorex Logger/" + Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
+            _config = new OrangebeardConfiguration()
+                .WithListenerIdentification(
+                    "Ranorex Logger/" + 
+                    typeof(OrangebeardLogger).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion
+                    );
             _orangebeard = new OrangebeardClient(_config);
         }
 
@@ -64,17 +68,16 @@ namespace RanorexOrangebeardListener
         public void End()
         {
             Report.SystemSummary();
-            if (_currentReporter != null)
-                while (_currentReporter.ParentTestReporter != null)
+            while (_currentReporter != null)
+            {
+                _currentReporter.Finish(new FinishTestItemRequest
                 {
-                    _currentReporter.Finish(new FinishTestItemRequest
-                    {
-                        Status = Status.Interrupted,
-                        EndTime = DateTime.UtcNow
-                    });
-                    _currentReporter.Sync();
-                    _currentReporter = _currentReporter.ParentTestReporter;
-                }
+                    Status = Status.Interrupted,
+                    EndTime = DateTime.UtcNow 
+                });
+                _currentReporter.Sync();
+                _currentReporter = _currentReporter.ParentTestReporter ?? null;
+            }
 
             _launchReporter.Finish(new FinishLaunchRequest {EndTime = DateTime.UtcNow});
             _launchReporter.Sync();
