@@ -42,8 +42,6 @@ namespace RanorexOrangebeardListener
 
         private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{1,2}\\))([^\b%\/\|:\n]*))";
 
-
-
         public OrangebeardLogger()
         {
             _config = new OrangebeardConfiguration()
@@ -309,7 +307,6 @@ namespace RanorexOrangebeardListener
                         LogErrorScreenshots(ActivityStack.Current.Children);
                         break;
                 }
-                
 
                 _currentReporter.Finish(new FinishTestItemRequest
                 {
@@ -340,8 +337,11 @@ namespace RanorexOrangebeardListener
                                 item.Message + "\r\n" +
                                 "Screenshot file name: " + item.ScreenshotFileName,
                                 Image.FromFile(TestReport.ReportEnvironment.ReportFileDirectory + "\\" + item.ScreenshotFileName),
-                                new IndexedDictionary<string, string>() {new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName)) }
-                                ) ;
+                                new IndexedDictionary<string, string>() 
+                                {
+                                    new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName)) 
+                                });
+
                             _reportedErrorScreenshots.Add(item.ScreenshotFileName);
                         }
                         catch (Exception e)
@@ -362,18 +362,12 @@ namespace RanorexOrangebeardListener
                 }
             }
         }
-        
-        private void AttachReferencedFiles(String message)
-        {
-
-        }
 
         private static string DescriptionForCurrentContainer()
         {
             var entry = (TestSuiteEntry) TestSuite.CurrentTestContainer;
             return entry.Comment;
         }
-
 
         private void UpdateTestrunWithSystemInfo(string message)
         {
