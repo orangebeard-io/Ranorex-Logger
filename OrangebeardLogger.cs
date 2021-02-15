@@ -16,6 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using Orangebeard.Client;
 using Orangebeard.Client.Abstractions.Models;
 using Orangebeard.Client.Abstractions.Requests;
@@ -39,9 +40,10 @@ namespace RanorexOrangebeardListener
         private readonly OrangebeardConfiguration _config;
         private List<string> _reportedErrorScreenshots = new List<string>();
 
+        private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{1,2}\\))([^\b%\/\|:\n]*))";
+
         public OrangebeardLogger()
         {
-            
             _config = new OrangebeardConfiguration()
                 .WithListenerIdentification(
                     "Ranorex Logger/" + 
@@ -93,8 +95,9 @@ namespace RanorexOrangebeardListener
             using (var ms = new MemoryStream())
             {
                 img.Save(ms, ImageFormat.Jpeg);
+                metaInfos.TryGetValue("attachmentFileName", out string filename);
                 var dataBytes = ms.ToArray();
-                LogToOrangebeard(level, category, message, dataBytes, metaInfos);
+                LogToOrangebeard(level, category, message, dataBytes, "image/jpeg", filename, metaInfos);
             }
         }
 
@@ -102,12 +105,52 @@ namespace RanorexOrangebeardListener
             IDictionary<string, string> metaInfos)
         {
             if (category.Equals("System Summary", StringComparison.InvariantCultureIgnoreCase))
+            {
                 UpdateTestrunWithSystemInfo(message);
+            }
             else if (!HandlePotentialStartFinishLog(metaInfos))
-                LogToOrangebeard(level, category, message, null, metaInfos);
+            {
+                string attachmentMimeType = null;
+                byte[] attachmentData = null;
+                string attachmentFileName = null;
+                PopulateAttachmentData(ref message, ref attachmentMimeType, ref attachmentData, ref attachmentFileName);
+                LogToOrangebeard(level, category, message, attachmentData, attachmentMimeType, attachmentFileName, metaInfos);
+            }
         }
 
-        private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData,
+        private void PopulateAttachmentData(ref string message, ref string attachmentMimeType, ref byte[] attachmentData, ref string attachmentFileName)
+        {
+            if (_config.FileUploadPatterns == null || _config.FileUploadPatterns.Count == 0)
+            {
+                //nothing to look for!
+                return;
+            }
+                Match match = Regex.Match(message, FILE_PATH_PATTERN);
+            if (match.Success) //Look only at first match, as we support max 1 attachment per log entry
+            {
+                string filePath = match.Value;
+                Match patternMatch;
+                foreach (string pattern in _config.FileUploadPatterns)
+                {
+                    patternMatch = Regex.Match(filePath, pattern);
+                    if (patternMatch.Success)
+                    {
+                        try
+                        {
+                            attachmentData = File.ReadAllBytes(filePath);
+                            attachmentFileName = Path.GetFileName(filePath);
+                            attachmentMimeType = Orangebeard.Shared.MimeTypes.MimeTypeMap.GetMimeType(Path.GetExtension(filePath));
+                            return; 
+                        } catch (Exception e)
+                        {
+                            message = $"{message}\r\nFailed to attach {filePath} ({e.Message})";
+                        }                        
+                    }
+                }
+            }
+        }
+
+        private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData, string mimeType, string attachmentFileName,
             IDictionary<string, string> metaInfos)
         {
             if (category == null)
@@ -120,7 +163,10 @@ namespace RanorexOrangebeardListener
                 Level = DetermineLogLevel(level.Name),
                 Text = "[" + category + "]: " + message
             };
-            if (attachmentData != null) logRq.Attach = new LogItemAttach("image/jpeg", attachmentData);
+            if (attachmentData != null)
+            {
+                logRq.Attach = new LogItemAttach(mimeType, attachmentData) { Name = attachmentFileName };
+            }
 
 
             CreateLogItemRequest metaRq = null;
@@ -261,7 +307,6 @@ namespace RanorexOrangebeardListener
                         LogErrorScreenshots(ActivityStack.Current.Children);
                         break;
                 }
-                
 
                 _currentReporter.Finish(new FinishTestItemRequest
                 {
@@ -287,13 +332,16 @@ namespace RanorexOrangebeardListener
                     try
                         {
                             LogData(
-                                item.Level, 
-                                "Screenshot", 
+                                item.Level,
+                                "Screenshot",
                                 item.Message + "\r\n" +
-                                "Screenshot file name: " + item.ScreenshotFileName, 
-                                Image.FromFile(TestReport.ReportEnvironment.ReportFileDirectory + "\\" + item.ScreenshotFileName), 
-                                new IndexedDictionary<string, string>()
-                                );
+                                "Screenshot file name: " + item.ScreenshotFileName,
+                                Image.FromFile(TestReport.ReportEnvironment.ReportFileDirectory + "\\" + item.ScreenshotFileName),
+                                new IndexedDictionary<string, string>() 
+                                {
+                                    new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName)) 
+                                });
+
                             _reportedErrorScreenshots.Add(item.ScreenshotFileName);
                         }
                         catch (Exception e)
@@ -302,7 +350,7 @@ namespace RanorexOrangebeardListener
                                 item.Level, 
                                 "Screenshot", "Exception getting screenshot: " + e.Message + "\r\n" +
                                 e.GetType().ToString() + ": " + e.StackTrace, 
-                                null, 
+                                null, null, null,
                                 new IndexedDictionary<string, string>()
                                 );
                         }
@@ -313,14 +361,13 @@ namespace RanorexOrangebeardListener
                     LogErrorScreenshots(((Activity)reportItem).Children);
                 }
             }
-        }                 
+        }
 
         private static string DescriptionForCurrentContainer()
         {
             var entry = (TestSuiteEntry) TestSuite.CurrentTestContainer;
             return entry.Comment;
         }
-
 
         private void UpdateTestrunWithSystemInfo(string message)
         {
