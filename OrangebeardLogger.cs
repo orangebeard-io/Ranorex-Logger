@@ -38,9 +38,9 @@ namespace RanorexOrangebeardListener
         private ITestReporter _currentReporter;
         private LaunchReporter _launchReporter;
         private readonly OrangebeardConfiguration _config;
-        private List<string> _reportedErrorScreenshots = new List<string>();
+        private readonly List<string> _reportedErrorScreenshots = new List<string>();
 
-        private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{1,2}\\))([^\b%\/\|:\n]*))";
+        private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{0,2}\\))([^\b%\/\|:\n<>""']*))";
 
         public OrangebeardLogger()
         {
@@ -77,7 +77,6 @@ namespace RanorexOrangebeardListener
                     Status = Status.Interrupted,
                     EndTime = DateTime.UtcNow 
                 });
-                _currentReporter.Sync();
                 _currentReporter = _currentReporter.ParentTestReporter ?? null;
             }
 
@@ -133,7 +132,7 @@ namespace RanorexOrangebeardListener
                 foreach (string pattern in _config.FileUploadPatterns)
                 {
                     patternMatch = Regex.Match(filePath, pattern);
-                    if (patternMatch.Success)
+                    if (patternMatch.Success && Path.IsPathRooted(filePath)) //Ignore relative paths, as they are likely user-generated and tool dependent in html logs
                     {
                         try
                         {
@@ -143,6 +142,9 @@ namespace RanorexOrangebeardListener
                             return; 
                         } catch (Exception e)
                         {
+                            attachmentMimeType = null;
+                            attachmentData = null;
+                            attachmentFileName = null;
                             message = $"{message}\r\nFailed to attach {filePath} ({e.Message})";
                         }                        
                     }
@@ -163,7 +165,7 @@ namespace RanorexOrangebeardListener
                 Level = DetermineLogLevel(level.Name),
                 Text = "[" + category + "]: " + message
             };
-            if (attachmentData != null)
+            if (attachmentData != null && attachmentFileName != null)
             {
                 logRq.Attach = new LogItemAttach(mimeType, attachmentData) { Name = attachmentFileName };
             }
@@ -259,17 +261,18 @@ namespace RanorexOrangebeardListener
                         attributes.Add(new ItemAttribute {Value = "Module"});
                         var currentLeaf = (TestModuleLeaf) TestModuleLeaf.Current;
                         if (currentLeaf.Parent is ModuleGroupNode)
-                            attributes.Add(new ItemAttribute
-                                {Key = "Module Group", Value = currentLeaf.Parent.DisplayName});
+                        {
+                            attributes.Add(new ItemAttribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
+                        }
                         if (currentLeaf.IsDescendantOfSetupNode)
                         {
-                            attributes.Add(new ItemAttribute {Value = "Setup"});
+                            attributes.Add(new ItemAttribute { Value = "Setup" });
                             type = TestItemType.BeforeMethod;
                         }
 
                         if (currentLeaf.IsDescendantOfTearDownNode)
                         {
-                            attributes.Add(new ItemAttribute {Value = "TearDown"});
+                            attributes.Add(new ItemAttribute { Value = "TearDown" });
                             type = TestItemType.AfterMethod;
                         }
 
