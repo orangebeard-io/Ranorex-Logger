@@ -172,7 +172,7 @@ namespace RanorexOrangebeardListener
 
 
             CreateLogItemRequest metaRq = null;
-            if (metaInfos.Count >= 1)
+            if ((int) DetermineLogLevel(level.Name) >= 3 && metaInfos.Count >= 1)
             {
                 var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
 
