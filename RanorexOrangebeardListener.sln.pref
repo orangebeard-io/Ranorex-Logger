@@ -1,0 +1,12 @@
+﻿<Properties>
+  <Array name="active" />
+  <ActiveConfiguration value="Debug" />
+  <ActivePlatform value="Any CPU" />
+  <Array name="bookmarks" />
+  <Array name="files" />
+  <SerializedValue name="ModuleBrowserState">
+    <ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+  </SerializedValue>
+  <ProjectBrowserState value="[Solution RanorexOrangebeardListener[RanorexOrangebeardListener[]]]&#xD;&#xA;Solution RanorexOrangebeardListener&#xD;&#xA;Solution RanorexOrangebeardListener" />
+  <StartupProject value="" />
+</Properties>

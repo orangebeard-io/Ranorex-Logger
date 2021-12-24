@@ -40,7 +40,26 @@ namespace RanorexOrangebeardListener
         private readonly OrangebeardConfiguration _config;
         private readonly List<string> _reportedErrorScreenshots = new List<string>();
 
+        /// <summary>
+        /// Context information required for properly converting Ranorex items to Orangebeard items.
+        /// When converting Ranorex items to Orangebeard items, the context is important.
+        /// A Ranorex Smart Folder can become an Orangebeard Suite or an Orangebeard Step, depending on where it appears.
+        /// </summary>
+        private TypeTree _tree = null;
+
+        /// <summary>
+        /// Indicates if the current Ranorex item maps to an Orangebeard Test, or a descendant of an Orangebeard Test.
+        /// </summary>
+        private bool _isTestCaseOrDescendant = false;
+
+
         private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{0,2}\\))([^\b%\/\|:\n<>""']*))";
+        private const string TESTSUITE = "testsuite";
+        private const string TESTCONTAINER = "testcontainer";
+        private const string SMARTFOLDER_DATAITERATION = "smartfolder_dataiteration";
+        private const string TESTCASE_DATAITERATION = "testcase_dataiteration";
+        private const string TESTMODULE = "testmodule";
+
 
         public OrangebeardLogger()
         {
@@ -75,12 +94,12 @@ namespace RanorexOrangebeardListener
                 _currentReporter.Finish(new FinishTestItemRequest
                 {
                     Status = Status.Interrupted,
-                    EndTime = DateTime.UtcNow 
+                    EndTime = DateTime.UtcNow
                 });
                 _currentReporter = _currentReporter.ParentTestReporter ?? null;
             }
 
-            _launchReporter.Finish(new FinishLaunchRequest {EndTime = DateTime.UtcNow});
+            _launchReporter.Finish(new FinishLaunchRequest { EndTime = DateTime.UtcNow });
             _launchReporter.Sync();
         }
 
@@ -171,13 +190,16 @@ namespace RanorexOrangebeardListener
             }
 
 
+            var logLevel = DetermineLogLevel(level.Name);
             CreateLogItemRequest metaRq = null;
-            if ((int) DetermineLogLevel(level.Name) >= 3 && metaInfos.Count >= 1)
+            if (MeetsMinimumSeverity(logLevel, LogLevel.Warning) && metaInfos.Count >= 1)
             {
                 var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
 
                 foreach (var key in metaInfos.Keys)
+                {
                     meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
+                }
 
                 metaRq = new CreateLogItemRequest
                 {
@@ -203,124 +225,159 @@ namespace RanorexOrangebeardListener
         {
             if (!info.ContainsKey("activity")) return false;
 
+            //If there is no result key, we need to start an item
+            if (!info.ContainsKey("result"))
+            {
+                StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+
+                if (_tree == null)
+                {
+                    _tree = new TypeTree(rq.Type, rq.Name);
+                } else
+                {
+                    _tree = _tree.Add(rq.Type, rq.Name);
+                }
+
+                if (rq.Type == TestItemType.Test)
+                {
+                    _isTestCaseOrDescendant = true;
+                }
+
+                _currentReporter = _currentReporter == null
+                    ? _launchReporter.StartChildTestReporter(rq)
+                    : _currentReporter.StartChildTestReporter(rq);
+
+            }
+            else
+            {
+                FinishTestItemRequest finishTestItemRequest = DetermineFinishItemRequest(info["result"]);
+
+                _currentReporter.Finish(finishTestItemRequest);
+
+                _currentReporter = _currentReporter.ParentTestReporter;
+
+                if (_tree.ItemType == TestItemType.Test)
+                {
+                    _isTestCaseOrDescendant = false;
+                }
+                _tree = _tree.GetParent();
+            }
+
+            return true;
+        }
+
+        private StartTestItemRequest DetermineStartTestItemRequest(string activityType, IDictionary<string, string> info)
+        {
             var type = TestItemType.Step;
             var name = "";
             var namePostfix = "";
             var description = "";
 
             var attributes = new List<ItemAttribute>();
-
-            //If there is no result key, we need to start an item
-            if (!info.ContainsKey("result"))
+            switch (activityType)
             {
-                switch (info["activity"])
-                {
-                    case "testsuite":
-                        var suite = (TestSuite) TestSuite.Current;
-                        type = TestItemType.Suite;
-                        name = info["modulename"];
-                        attributes.Add(new ItemAttribute {Value = "Suite"});
-                        description = suite.Children.First().Comment;
-                        break;
+                case TESTSUITE:
+                    var suite = (TestSuite)TestSuite.Current;
+                    type = TestItemType.Suite;
+                    name = info["modulename"];
+                    attributes.Add(new ItemAttribute { Value = "Suite" });
+                    description = suite.Children.First().Comment;
+                    break;
 
-                    case "testcontainer":
-                        name = info["testcontainername"];
-                        if (TestSuite.CurrentTestContainer.IsSmartFolder)
-                        {
-                            type = TestItemType.Suite;
-                            attributes.Add(new ItemAttribute {Value = "Smart folder"});
-                        }
-                        else
-                        {
-                            type = TestItemType.Test;
-                            attributes.Add(new ItemAttribute {Value = "Test Case"});
-                        }
-
-                        description = DescriptionForCurrentContainer();
-                        break;
-
-                    case "smartfolder_dataiteration":
-                        type = TestItemType.Suite;
-                        name = info["testcontainername"];
-                        namePostfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
-                        attributes.Add(new ItemAttribute {Value = "Smart folder"});
-                        description = DescriptionForCurrentContainer();
-                        break;
-
-                    case "testcase_dataiteration":
+                case TESTCONTAINER:
+                    name = info["testcontainername"];
+                    if (TestSuite.CurrentTestContainer.IsSmartFolder)
+                    {
+                        type = _isTestCaseOrDescendant ? TestItemType.Step : TestItemType.Suite;
+                        attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                    }
+                    else
+                    {
                         type = TestItemType.Test;
-                        name = info["testcontainername"];
-                        namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
-                        attributes.Add(new ItemAttribute {Value = "Test Case"});
-                        description = DescriptionForCurrentContainer();
-                        break;
+                        attributes.Add(new ItemAttribute { Value = "Test Case" });
+                        _isTestCaseOrDescendant = true;
+                    }
 
-                    case "testmodule":
-                        type = TestItemType.Step;
-                        name = info["modulename"];
-                        attributes.Add(new ItemAttribute {Value = "Module"});
-                        var currentLeaf = (TestModuleLeaf) TestModuleLeaf.Current;
-                        if (currentLeaf.Parent is ModuleGroupNode)
-                        {
-                            attributes.Add(new ItemAttribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
-                        }
-                        if (currentLeaf.IsDescendantOfSetupNode)
-                        {
-                            attributes.Add(new ItemAttribute { Value = "Setup" });
-                            type = TestItemType.BeforeMethod;
-                        }
+                    description = DescriptionForCurrentContainer();
+                    break;
 
-                        if (currentLeaf.IsDescendantOfTearDownNode)
-                        {
-                            attributes.Add(new ItemAttribute { Value = "TearDown" });
-                            type = TestItemType.AfterMethod;
-                        }
+                case SMARTFOLDER_DATAITERATION:
+                    type = _isTestCaseOrDescendant? TestItemType.Step : TestItemType.Suite;
+                    name = info["testcontainername"];
+                    namePostfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
+                    attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                    description = DescriptionForCurrentContainer();
+                    break;
 
-                        description = currentLeaf.Comment;
-                        break;
-                }
+                case TESTCASE_DATAITERATION:
+                    type = TestItemType.Test;
+                    _isTestCaseOrDescendant = true;
+                    name = info["testcontainername"];
+                    namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
+                    attributes.Add(new ItemAttribute { Value = "Test Case" });
+                    description = DescriptionForCurrentContainer();
+                    break;
 
-                var rq = new StartTestItemRequest
-                {
-                    StartTime = DateTime.UtcNow,
-                    Type = type,
-                    Name = name + namePostfix,
-                    Description = description,
-                    Attributes = attributes
-                };
+                case TESTMODULE:
+                    type = TestItemType.Step;
+                    name = info["modulename"];
+                    attributes.Add(new ItemAttribute { Value = "Module" });
+                    var currentLeaf = (TestModuleLeaf)TestModuleLeaf.Current;
+                    if (currentLeaf.Parent is ModuleGroupNode)
+                    {
+                        attributes.Add(new ItemAttribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
+                    }
+                    if (currentLeaf.IsDescendantOfSetupNode)
+                    {
+                        attributes.Add(new ItemAttribute { Value = "Setup" });
+                        type = TestItemType.BeforeMethod;
+                    }
 
-                _currentReporter = _currentReporter == null
-                    ? _launchReporter.StartChildTestReporter(rq)
-                    : _currentReporter.StartChildTestReporter(rq);
+                    if (currentLeaf.IsDescendantOfTearDownNode)
+                    {
+                        attributes.Add(new ItemAttribute { Value = "TearDown" });
+                        type = TestItemType.AfterMethod;
+                    }
+
+                    description = currentLeaf.Comment;
+                    break;
             }
-            else
+
+            var rq = new StartTestItemRequest
             {
-                Status status;
+                StartTime = DateTime.UtcNow,
+                Type = type,
+                Name = name + namePostfix,
+                Description = description,
+                Attributes = attributes
+            };
+            return rq;
+        }
 
-                switch (info["result"].ToLower())
-                {
-                    case "success":
-                        status = Status.Passed;
-                        break;
-                    case "ignored":
-                        status = Status.Skipped;
-                        break;
-                    default:
-                        status = Status.Failed;
-                        LogErrorScreenshots(ActivityStack.Current.Children);
-                        break;
-                }
+        private FinishTestItemRequest DetermineFinishItemRequest(string result /*IDictionary<string, string> info*/)
+        {
+            Status status;
 
-                _currentReporter.Finish(new FinishTestItemRequest
-                {
-                    EndTime = DateTime.UtcNow,
-                    Status = status
-                });
-
-                _currentReporter = _currentReporter.ParentTestReporter;
+            switch(result.ToLower())
+            {
+                case "success":
+                    status = Status.Passed;
+                    break;
+                case "ignored":
+                    status = Status.Skipped;
+                    break;
+                default:
+                    status = Status.Failed;
+                    LogErrorScreenshots(ActivityStack.Current.Children);
+                    break;
             }
 
-            return true;
+            FinishTestItemRequest finishTestItemRequest = new FinishTestItemRequest
+            {
+                EndTime = DateTime.UtcNow,
+                Status = status
+            };
+            return finishTestItemRequest;
         }
 
         private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
@@ -404,6 +461,18 @@ namespace RanorexOrangebeardListener
             else
                 level = LogLevel.Info;
             return level;
+        }
+
+        /// Determine if a LogLevel has at least a minimum severity.
+        /// For example, <code>LogLevel.Error</code> is more severe than <code>LogLevel.Warning</code>; so <code>MeetsMinimumSeverity(Error, Warning)</code> is <code>true</code>.
+        /// Similarly, <code>LogLevel.Warning</code> is at severity level <code>Warning</code>; so <code>MeetsMinimumSeverity(Warning, Warning)</code> is also <code>true</code>.
+        /// But <code>LogLevel.Info</code> is less severe than <code>LogLevel.Warning</code>, so <code>MeetsMinimumSeverity(Warning, Info)</code> is <code>false</code>.
+        /// <param name="level">The LogLevel whose severity must be checked.</param>
+        /// <param name="threshold">The severity level to check against.</param>
+        /// <returns>The boolean value <code>true</code> if and only if the given log level has at least the same level of severity as the threshold value.</returns>
+        private static bool MeetsMinimumSeverity(LogLevel level, LogLevel threshold)
+        {
+            return ((int)level) >= (int)threshold;
         }
     }
 }
