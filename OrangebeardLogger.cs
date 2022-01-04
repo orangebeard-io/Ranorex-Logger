@@ -17,6 +17,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 using Orangebeard.Client;
 using Orangebeard.Client.Abstractions.Models;
 using Orangebeard.Client.Abstractions.Requests;
@@ -60,7 +61,6 @@ namespace RanorexOrangebeardListener
         private const string TESTCASE_DATAITERATION = "testcase_dataiteration";
         private const string TESTMODULE = "testmodule";
 
-
         public OrangebeardLogger()
         {
             _config = new OrangebeardConfiguration()
@@ -69,6 +69,36 @@ namespace RanorexOrangebeardListener
                     typeof(OrangebeardLogger).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion
                     );
             _orangebeard = new OrangebeardClient(_config);
+
+            var changedComponents = ParseJson(); //TODO!~ Get the environment variable or JSON file.
+        }
+
+        private List<Tuple<String,String>> ParseJson()
+        {
+            //TODO!- This dummy is used for trying things out. Should be replaced with a unit test.
+            const string dummy = @"[{""componentName"": ""myComponent1"", ""componentVersion"":""myVersion1""}, {""componentName"": ""myComponent2"", ""componentVersion"":""myVersion2""}]";
+
+            JArray jsonArray = JArray.Parse(dummy);
+            var pairs = new List<Tuple<string, string>>();
+
+            foreach (JToken member in jsonArray)
+            {
+                //TODO?+ Check if we can get these values in a case-INsensitive way.
+                JToken jTokName = member["componentName"];
+                JToken jTokVersion = member["componentVersion"];
+
+                if (jTokName.Type == JTokenType.String && jTokVersion.Type == JTokenType.String)
+                {
+                    string name = jTokName.Value<string>();
+                    string version = jTokVersion.Value<string>();
+
+                    Tuple<string, string> pair = new Tuple<string, string>(name, version);
+
+                    pairs.Add(pair);
+                }
+            }
+
+            return pairs;
         }
 
         public bool PreFilterMessages => false;
