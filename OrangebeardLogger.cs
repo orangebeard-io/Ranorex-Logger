@@ -53,6 +53,10 @@ namespace RanorexOrangebeardListener
         /// </summary>
         private bool _isTestCaseOrDescendant = false;
 
+        private List<ChangedComponent> _changedComponents = new List<ChangedComponent>();
+
+        private const string CHANGED_COMPONENTS_PATH = @".\changedComponents.json";
+        private const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
 
         private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{0,2}\\))([^\b%\/\|:\n<>""']*))";
         private const string TESTSUITE = "testsuite";
@@ -65,36 +69,70 @@ namespace RanorexOrangebeardListener
         {
             _config = new OrangebeardConfiguration()
                 .WithListenerIdentification(
-                    "Ranorex Logger/" + 
+                    "Ranorex Logger/" +
                     typeof(OrangebeardLogger).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion
                     );
             _orangebeard = new OrangebeardClient(_config);
 
-            var changedComponents = ParseJson(); //TODO!~ Get the environment variable or JSON file.
+            LoadChangedComponentsList();
         }
 
-        private List<Tuple<String,String>> ParseJson()
+        private void LoadChangedComponentsList()
         {
-            //TODO!- This dummy is used for trying things out. Should be replaced with a unit test.
-            const string dummy = @"[{""componentName"": ""myComponent1"", ""componentVersion"":""myVersion1""}, {""componentName"": ""myComponent2"", ""componentVersion"":""myVersion2""}]";
+            string changedComponentsJson = Environment.GetEnvironmentVariable(CHANGED_COMPONENTS_VARIABLE);
+            if (string.IsNullOrEmpty(changedComponentsJson))
+            {
+                if (File.Exists(CHANGED_COMPONENTS_PATH))
+                {
+                    changedComponentsJson = File.ReadAllText(CHANGED_COMPONENTS_PATH);
+                }
+            }
 
-            JArray jsonArray = JArray.Parse(dummy);
-            var pairs = new List<Tuple<string, string>>();
+            if (string.IsNullOrWhiteSpace(changedComponentsJson))
+            {
+                _changedComponents = new List<ChangedComponent>();
+            }
+            else
+            {
+                _changedComponents = ParseJson(changedComponentsJson);
+            }
+        }
+
+        /// <summary>
+        /// Parse a JSON array to a list of (componentName, componentVersion) pairs.
+        /// For example, suppose you have the JSON array [{"componentName":"barber","componentVersion":"2022.1.1.35"},{"componentName":"shaver","componentVersion":"2019.2.1.24"}].
+        /// This will result in a list of two pairs: [("barber","2022.1.1.35"),("shaver","2019.2.1.24")].
+        /// Elements in the JSON array <b>must</b> contain a pair that starts with "componentName" and a pair that starts with "componentVersion". However, the value for "componentVersion" is allowed to be null.
+        /// So [{"componentName":"barber","componentVersion":null}] is legal; the version is allowed to be null.
+        /// But [{"componentName":"barber"}] is illegal; there should be a "componentVersion".
+        /// Illegal elements will be ignored.
+        /// It is allowed to add more elements in an element than componentVersion and componentName; those extra elements will be ignored, but may be processed in the future.
+        /// For example, [{"componentName":"barber","componentVersion":"2022.1.1.35", "componentTool":"shavingCream"}] will simply result in the pair ("barber","2022.1.1.35").
+        /// </summary>
+        /// <returns>A list of pairs, where each pair is a combination of a component name and a component version.</returns>
+        public static List<ChangedComponent> ParseJson(string json)
+        {
+            JArray jsonArray = JArray.Parse(json);
+            var pairs = new List<ChangedComponent>();
 
             foreach (JToken member in jsonArray)
             {
-                //TODO?+ Check if we can get these values in a case-INsensitive way.
-                JToken jTokName = member["componentName"];
-                JToken jTokVersion = member["componentVersion"];
+                JToken jTokenName = member["componentName"];
+                JToken jTokenVersion = member["componentVersion"];
 
-                if (jTokName.Type == JTokenType.String && jTokVersion.Type == JTokenType.String)
+                if (jTokenName != null && jTokenName.Type == JTokenType.String && jTokenVersion!= null)
                 {
-                    string name = jTokName.Value<string>();
-                    string version = jTokVersion.Value<string>();
+                    string name = jTokenName.Value<string>();
 
-                    Tuple<string, string> pair = new Tuple<string, string>(name, version);
-
-                    pairs.Add(pair);
+                    if (jTokenVersion.Type == JTokenType.String)
+                    {
+                        string version = jTokenVersion.Value<string>();
+                        pairs.Add(new ChangedComponent(name, version));
+                    }
+                    else if (jTokenVersion.Type == JTokenType.Null)
+                    {
+                        pairs.Add(new ChangedComponent(name, null));
+                    }
                 }
             }
 
