@@ -53,7 +53,7 @@ namespace RanorexOrangebeardListener
         /// </summary>
         private bool _isTestCaseOrDescendant = false;
 
-        private ISet<ChangedComponent> _changedComponents = new HashSet<ChangedComponent>();
+        private IList<ChangedComponent> _changedComponents = new List<ChangedComponent>();
 
         private const string CHANGED_COMPONENTS_PATH = @".\changedComponents.json";
         private const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
@@ -90,7 +90,7 @@ namespace RanorexOrangebeardListener
 
             if (string.IsNullOrWhiteSpace(changedComponentsJson))
             {
-                _changedComponents = new HashSet<ChangedComponent>();
+                _changedComponents = new List<ChangedComponent>();
             }
             else
             {
@@ -110,7 +110,7 @@ namespace RanorexOrangebeardListener
         /// For example, [{"componentName":"barber","componentVersion":"2022.1.1.35", "componentTool":"shavingCream"}] will simply result in the pair ("barber","2022.1.1.35").
         /// </summary>
         /// <returns>A list of pairs, where each pair is a combination of a component name and a component version.</returns>
-        public static ISet<ChangedComponent> ParseJson(string json)
+        public static IList<ChangedComponent> ParseJson(string json)
         {
             JArray jsonArray = JArray.Parse(json);
             var pairs = new HashSet<ChangedComponent>();
@@ -136,7 +136,7 @@ namespace RanorexOrangebeardListener
                 }
             }
 
-            return pairs;
+            return pairs.ToList<ChangedComponent>();
         }
 
         public bool PreFilterMessages => false;
