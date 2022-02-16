@@ -340,7 +340,7 @@ namespace RanorexOrangebeardListener
             var type = TestItemType.Step;
             var name = "";
             var namePostfix = "";
-            var description = "";
+            var description = "";           
 
             var attributes = new List<ItemAttribute>();
             switch (activityType)
@@ -409,6 +409,7 @@ namespace RanorexOrangebeardListener
                     }
 
                     description = currentLeaf.Comment;
+                    
                     break;
             }
 
@@ -418,7 +419,8 @@ namespace RanorexOrangebeardListener
                 Type = type,
                 Name = name + namePostfix,
                 Description = description,
-                Attributes = attributes
+                Attributes = attributes,
+                HasStats = type != TestItemType.Step
             };
             return rq;
         }
