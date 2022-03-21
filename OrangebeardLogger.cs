@@ -308,7 +308,7 @@ namespace RanorexOrangebeardListener
                         Name = ((TestSuite)TestSuite.Current).Children[0].Name,
                         Description = ((TestSuite)TestSuite.Current).Children[0].Comment,
                         Attributes = new List<ItemAttribute> { new ItemAttribute { Value = "Suite" } },
-                        HasStats = false
+                        HasStats = true
                     };
 
                     UpdateTree(suiteRq);
