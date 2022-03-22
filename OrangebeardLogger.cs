@@ -293,41 +293,12 @@ namespace RanorexOrangebeardListener
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
             //check if there is an active (root) suite, otherwise make sure it has started
-            bool startedItem = false;
-            if (_currentReporter == null)
-            {
-                StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
-
-                if (rq.Type != TestItemType.Suite)
-                {
-                    //start toplevel suite first
-                    StartTestItemRequest suiteRq = new StartTestItemRequest
-                    {
-                        StartTime = DateTime.UtcNow,
-                        Type = TestItemType.Suite,
-                        Name = ((TestSuite)TestSuite.Current).Children[0].Name,
-                        Description = ((TestSuite)TestSuite.Current).Children[0].Comment,
-                        Attributes = new List<ItemAttribute> { new ItemAttribute { Value = "Suite" } },
-                        HasStats = true
-                    };
-
-                    UpdateTree(suiteRq);
-                    _currentReporter =  _launchReporter.StartChildTestReporter(suiteRq);                   
-                } 
-
-                // start current item
-                UpdateTree(rq);
-
-                _currentReporter = _currentReporter == null
-                    ? _launchReporter.StartChildTestReporter(rq)
-                    : _currentReporter.StartChildTestReporter(rq);
-                startedItem = true;
-            }
+            bool forcedSynchronization = EnsureReportingIsInSync(info);
 
             if (!info.ContainsKey("activity")) return false;          
 
             //If there is no result key and we have not autopopulated suite and item, we need to start an item
-            if (!info.ContainsKey("result") && !startedItem)
+            if (!info.ContainsKey("result") && !forcedSynchronization)
             {
                 StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
                 UpdateTree(rq);
@@ -354,6 +325,40 @@ namespace RanorexOrangebeardListener
                 return true;
             }
 
+        }
+
+        private bool EnsureReportingIsInSync(IDictionary<string, string> info)
+        {
+            if (_currentReporter != null) return false;
+            
+            StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+
+            if (rq.Type != TestItemType.Suite)
+            {
+                //start toplevel suite first
+                StartTestItemRequest suiteRq = new StartTestItemRequest
+                {
+                    StartTime = DateTime.UtcNow,
+                    Type = TestItemType.Suite,
+                    Name = ((TestSuite)TestSuite.Current).Children[0].Name,
+                    Description = ((TestSuite)TestSuite.Current).Children[0].Comment,
+                    Attributes = new List<ItemAttribute> { new ItemAttribute { Value = "Suite" } },
+                    HasStats = true
+                };
+
+                UpdateTree(suiteRq);
+                _currentReporter = _launchReporter.StartChildTestReporter(suiteRq);
+            }
+
+            // start current item
+            UpdateTree(rq);
+
+            _currentReporter = _currentReporter == null
+                ? _launchReporter.StartChildTestReporter(rq)
+                : _currentReporter.StartChildTestReporter(rq);
+            
+            return true;
+          
         }
 
         private void UpdateTree(StartTestItemRequest rq)
