@@ -292,37 +292,29 @@ namespace RanorexOrangebeardListener
 
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
-            if (!info.ContainsKey("activity")) return false;
+            //check if there is an active (root) suite, otherwise make sure it has started
+            bool forcedSynchronization = EnsureReportingIsInSync(info);
 
-            //If there is no result key, we need to start an item
-            if (!info.ContainsKey("result"))
+            if (!info.ContainsKey("activity")) return false;          
+
+            //If there is no result key and we have not autopopulated suite and item, we need to start an item
+            if (!info.ContainsKey("result") && !forcedSynchronization)
             {
                 StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
-
-                if (_tree == null)
-                {
-                    _tree = new TypeTree(rq.Type, rq.Name);
-                } else
-                {
-                    _tree = _tree.Add(rq.Type, rq.Name);
-                }
-
-                if (rq.Type == TestItemType.Test)
-                {
-                    _isTestCaseOrDescendant = true;
-                }
+                UpdateTree(rq);
 
                 _currentReporter = _currentReporter == null
                     ? _launchReporter.StartChildTestReporter(rq)
                     : _currentReporter.StartChildTestReporter(rq);
 
+                return true;
+
             }
             else
             {
                 FinishTestItemRequest finishTestItemRequest = DetermineFinishItemRequest(info["result"]);
-
+                
                 _currentReporter.Finish(finishTestItemRequest);
-
                 _currentReporter = _currentReporter.ParentTestReporter;
 
                 if (_tree.ItemType == TestItemType.Test)
@@ -330,9 +322,60 @@ namespace RanorexOrangebeardListener
                     _isTestCaseOrDescendant = false;
                 }
                 _tree = _tree.GetParent();
+                return true;
             }
 
+        }
+
+        private bool EnsureReportingIsInSync(IDictionary<string, string> info)
+        {
+            if (_currentReporter != null) return false;
+            
+            StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+
+            if (rq.Type != TestItemType.Suite)
+            {
+                //start toplevel suite first
+                StartTestItemRequest suiteRq = new StartTestItemRequest
+                {
+                    StartTime = DateTime.UtcNow,
+                    Type = TestItemType.Suite,
+                    Name = ((TestSuite)TestSuite.Current).Children[0].Name,
+                    Description = ((TestSuite)TestSuite.Current).Children[0].Comment,
+                    Attributes = new List<ItemAttribute> { new ItemAttribute { Value = "Suite" } },
+                    HasStats = true
+                };
+
+                UpdateTree(suiteRq);
+                _currentReporter = _launchReporter.StartChildTestReporter(suiteRq);
+            }
+
+            // start current item
+            UpdateTree(rq);
+
+            _currentReporter = _currentReporter == null
+                ? _launchReporter.StartChildTestReporter(rq)
+                : _currentReporter.StartChildTestReporter(rq);
+            
             return true;
+          
+        }
+
+        private void UpdateTree(StartTestItemRequest rq)
+        {
+            if (_tree == null)
+            {
+                _tree = new TypeTree(rq.Type, rq.Name);
+            }
+            else
+            {
+                _tree = _tree.Add(rq.Type, rq.Name);
+            }
+
+            if (rq.Type == TestItemType.Test)
+            {
+                _isTestCaseOrDescendant = true;
+            }
         }
 
         private StartTestItemRequest DetermineStartTestItemRequest(string activityType, IDictionary<string, string> info)
