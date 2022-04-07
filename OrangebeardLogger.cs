@@ -290,14 +290,22 @@ namespace RanorexOrangebeardListener
             }
         }
 
+        /// <summary>
+        /// We have a log item; it can be a Start log item, a Finish log item, or another type of log item.
+        /// This method checks if the item is a Start log item or a Finish log item, and if so, handles them accordingly.
+        /// In this case, the method returns <code>true</code> to tell the caller that the log item has been handled.
+        /// Otherwise (in other words, if no log items were handled) this method returns <code>false</code>.
+        /// </summary>
+        /// <param name="info">Information obtained from Ranorex that describes the log item.</param>
+        /// <returns><code>true</code> if a Start test item or Finish test item were handled; <code>false</code> otherwise.</returns>
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
-            //check if there is an active (root) suite, otherwise make sure it has started
+            // Check if there is an active (root) suite, otherwise make sure it has started.
             bool forcedSynchronization = EnsureReportingIsInSync(info);
 
             if (!info.ContainsKey("activity")) return false;          
 
-            //If there is no result key and we have not autopopulated suite and item, we need to start an item
+            // If there is no result key and we have not autopopulated suite and item, we need to start an item.
             if (!info.ContainsKey("result") && !forcedSynchronization)
             {
                 StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
@@ -327,6 +335,12 @@ namespace RanorexOrangebeardListener
 
         }
 
+        /// <summary>
+        /// On some environments, it  is possible for the test run to have started <em>before</em> the Orangebeard Logger.
+        /// This method checks if this is the case, and if it is, it creates a new virtual Suite. Test items can then be attached to this virtual Suite.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <returns><code>true</code> if a new virtual Suite was created, <code>false</code> otherwise.</returns>
         private bool EnsureReportingIsInSync(IDictionary<string, string> info)
         {
             if (_currentReporter != null) return false;
