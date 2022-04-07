@@ -290,6 +290,10 @@ namespace RanorexOrangebeardListener
             }
         }
 
+        //TODO!+ ADD MORE LOGGING.
+
+        //TODO!+ TEST that the new EnsureExistenceOfTopLevelSuite works! (Need to get it called when _currentReporter==null...)
+
         /// <summary>
         /// We have a log item; it can be a Start log item, a Finish log item, or another type of log item.
         /// This method checks if the item is a Start log item or a Finish log item, and if so, handles them accordingly.
@@ -300,21 +304,13 @@ namespace RanorexOrangebeardListener
         /// <returns><code>true</code> if a Start test item or Finish test item were handled; <code>false</code> otherwise.</returns>
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
-            // Check if there is an active (root) suite, otherwise make sure it has started.
-            bool forcedSynchronization = EnsureReportingIsInSync(info);
-            if (forcedSynchronization)
-            {
-                // If "EnsureReportingIsInSync" returns true, a new (root) suite was created,
-                // AND the StartTestItemRequest was created and sent to the appropriate reporter.
-                return true;
-            }
-
             if (!info.ContainsKey("activity")) return false;          
 
             // If there is no result key and we have not autopopulated suite and item, we need to start an item.
-            if (!info.ContainsKey("result") && !forcedSynchronization)
+            if (!info.ContainsKey("result"))
             {
                 StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+                EnsureExistenceOfTopLevelSuite(rq);
                 UpdateTree(rq);
 
                 _currentReporter = _currentReporter == null
@@ -341,6 +337,7 @@ namespace RanorexOrangebeardListener
 
         }
 
+        /*
         /// <summary>
         /// On some environments, it  is possible for the test run to have started <em>before</em> the Orangebeard Logger.
         /// This method checks if this is the case, and if it is, it creates a new virtual Suite. Test items can then be attached to this virtual Suite.
@@ -349,11 +346,38 @@ namespace RanorexOrangebeardListener
         /// <returns><code>true</code> if a new virtual Suite was created, <code>false</code> otherwise.</returns>
         private bool EnsureReportingIsInSync(IDictionary<string, string> info)
         {
-            if (_currentReporter != null) return false;
-            
-            StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+            if (_currentReporter == null)
+            {
+                StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
 
-            if (rq.Type != TestItemType.Suite)
+                if (rq.Type != TestItemType.Suite)
+                {
+                    EnsureExistenceOfTopLevelSuite(rq);
+                }
+
+                // start current item
+                UpdateTree(rq);
+
+                _currentReporter = _currentReporter == null
+                    ? _launchReporter.StartChildTestReporter(rq)
+                    : _currentReporter.StartChildTestReporter(rq);
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+          
+        }
+        */
+
+        /// <summary>
+        /// Test if a top-level suite is needed, and if so, create one.
+        /// </summary>
+        private void EnsureExistenceOfTopLevelSuite(StartTestItemRequest rq)
+        {
+            if (_currentReporter == null && rq.Type != TestItemType.Suite)
             {
                 //start toplevel suite first
                 StartTestItemRequest suiteRq = new StartTestItemRequest
@@ -369,16 +393,6 @@ namespace RanorexOrangebeardListener
                 UpdateTree(suiteRq);
                 _currentReporter = _launchReporter.StartChildTestReporter(suiteRq);
             }
-
-            // start current item
-            UpdateTree(rq);
-
-            _currentReporter = _currentReporter == null
-                ? _launchReporter.StartChildTestReporter(rq)
-                : _currentReporter.StartChildTestReporter(rq);
-            
-            return true;
-          
         }
 
         private void UpdateTree(StartTestItemRequest rq)
