@@ -302,6 +302,12 @@ namespace RanorexOrangebeardListener
         {
             // Check if there is an active (root) suite, otherwise make sure it has started.
             bool forcedSynchronization = EnsureReportingIsInSync(info);
+            if (forcedSynchronization)
+            {
+                // If "EnsureReportingIsInSync" returns true, a new (root) suite was created,
+                // AND the StartTestItemRequest was created and sent to the appropriate reporter.
+                return true;
+            }
 
             if (!info.ContainsKey("activity")) return false;          
 
