@@ -205,13 +205,6 @@ namespace RanorexOrangebeardListener
             }
         }
 
-        private void ForceAttachImage()
-        {
-            var dict = new Dictionary<string, string>() { { "attachmentFileName", "TestPlaatje1.jpg" }, { "key1", "value1" }, { "key2", "value2" } };
-            var imageData = Image.FromFile(@"C:\Users\WDAGUtilityAccount\Desktop\Sandbox_RX\TestPlaatje1.jpg");
-            LogData(ReportLevel.Error, "Screenshot", "bericht", imageData, dict);
-        }
-
         private void PopulateAttachmentData(ref string message, ref string attachmentMimeType, ref byte[] attachmentData, ref string attachmentFileName)
         {
             if (_config.FileUploadPatterns == null || _config.FileUploadPatterns.Count == 0)
@@ -296,8 +289,6 @@ namespace RanorexOrangebeardListener
                 if (metaRq != null) _currentReporter.Log(metaRq);
             }
         }
-
-        //TODO!+ ADD MORE LOGGING.
 
         /// <summary>
         /// We have a log item; it can be a Start log item, a Finish log item, or another type of log item.
