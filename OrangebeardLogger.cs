@@ -205,6 +205,13 @@ namespace RanorexOrangebeardListener
             }
         }
 
+        private void ForceAttachImage()
+        {
+            var dict = new Dictionary<string, string>() { { "attachmentFileName", "TestPlaatje1.jpg" }, { "key1", "value1" }, { "key2", "value2" } };
+            var imageData = Image.FromFile(@"C:\Users\WDAGUtilityAccount\Desktop\Sandbox_RX\TestPlaatje1.jpg");
+            LogData(ReportLevel.Error, "Screenshot", "bericht", imageData, dict);
+        }
+
         private void PopulateAttachmentData(ref string message, ref string attachmentMimeType, ref byte[] attachmentData, ref string attachmentFileName)
         {
             if (_config.FileUploadPatterns == null || _config.FileUploadPatterns.Count == 0)
@@ -292,8 +299,6 @@ namespace RanorexOrangebeardListener
 
         //TODO!+ ADD MORE LOGGING.
 
-        //TODO!+ TEST that the new EnsureExistenceOfTopLevelSuite works! (Need to get it called when _currentReporter==null...)
-
         /// <summary>
         /// We have a log item; it can be a Start log item, a Finish log item, or another type of log item.
         /// This method checks if the item is a Start log item or a Finish log item, and if so, handles them accordingly.
@@ -306,11 +311,13 @@ namespace RanorexOrangebeardListener
         {
             if (!info.ContainsKey("activity")) return false;          
 
-            // If there is no result key and we have not autopopulated suite and item, we need to start an item.
             if (!info.ContainsKey("result"))
             {
                 StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+
+                // If there is no result key and we have not autopopulated suite and item, we need to start an item.
                 EnsureExistenceOfTopLevelSuite(rq);
+
                 UpdateTree(rq);
 
                 _currentReporter = _currentReporter == null
@@ -336,41 +343,6 @@ namespace RanorexOrangebeardListener
             }
 
         }
-
-        /*
-        /// <summary>
-        /// On some environments, it  is possible for the test run to have started <em>before</em> the Orangebeard Logger.
-        /// This method checks if this is the case, and if it is, it creates a new virtual Suite. Test items can then be attached to this virtual Suite.
-        /// </summary>
-        /// <param name="info"></param>
-        /// <returns><code>true</code> if a new virtual Suite was created, <code>false</code> otherwise.</returns>
-        private bool EnsureReportingIsInSync(IDictionary<string, string> info)
-        {
-            if (_currentReporter == null)
-            {
-                StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
-
-                if (rq.Type != TestItemType.Suite)
-                {
-                    EnsureExistenceOfTopLevelSuite(rq);
-                }
-
-                // start current item
-                UpdateTree(rq);
-
-                _currentReporter = _currentReporter == null
-                    ? _launchReporter.StartChildTestReporter(rq)
-                    : _currentReporter.StartChildTestReporter(rq);
-
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-          
-        }
-        */
 
         /// <summary>
         /// Test if a top-level suite is needed, and if so, create one.
