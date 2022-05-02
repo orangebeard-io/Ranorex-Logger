@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Orangebeard.Client.Abstractions.Models;
+using Orangebeard.Client.Entities;
 
 namespace RanorexOrangebeardListener
 {
@@ -13,17 +10,19 @@ namespace RanorexOrangebeardListener
         public TestItemType ItemType { get; private set; }
         private readonly string name = "";
         private TypeTree parent = null;
+        private Guid? itemId = null;
         private readonly List<TypeTree> children = new List<TypeTree>();
 
-        internal TypeTree(TestItemType itemType, string name)
+        internal TypeTree(TestItemType itemType, string name, Guid? itemId)
         {
             this.ItemType = itemType;
             this.name = name;
+            this.itemId = itemId;
         }
 
-        internal TypeTree Add(TestItemType type, string name)
+        internal TypeTree Add(TestItemType type, string name, Guid? itemId)
         {
-            TypeTree child = new TypeTree(type, name);
+            TypeTree child = new TypeTree(type, name, itemId);
             children.Add(child);
             child.parent = this;
             return child;
@@ -37,6 +36,11 @@ namespace RanorexOrangebeardListener
         internal TypeTree GetRoot()
         {
             return (parent == null) ? this : parent.GetRoot();
+        }
+
+        internal Guid? GetItemId()
+        {
+            return itemId;
         }
 
         internal void Print(string folder)
