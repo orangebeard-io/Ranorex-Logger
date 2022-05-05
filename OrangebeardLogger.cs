@@ -17,7 +17,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using Orangebeard.Client;
 using Orangebeard.Client.Entities;
 using Orangebeard.Client.OrangebeardProperties;
@@ -43,11 +42,9 @@ namespace RanorexOrangebeardListener
         //public ILogger logger = provider.CreateLogger("ConsoleLogger");
 
 
-        private bool useOldCode = false;
-        //private readonly OrangebeardClient _orangebeard;
         private readonly OrangebeardV2Client _orangebeard;
 
-        private Guid? testRunUuid;
+        private Guid testRunUuid;
         
         private readonly OrangebeardConfiguration _config;
         private readonly List<string> _reportedErrorScreenshots = new List<string>();
@@ -93,14 +90,16 @@ namespace RanorexOrangebeardListener
         public void Start()
         {
             StartTestRun startTestRun = new StartTestRun(_config.TestSetName, _config.Description, _config.Attributes, _changedComponents);
-            testRunUuid = _orangebeard.StartTestRun(startTestRun);
-            if (testRunUuid == null)
+            var possibleTestRunUuid = _orangebeard.StartTestRun(startTestRun);
+            if (possibleTestRunUuid == null)
             {
                 //TODO!~ Use a logger.
                 Console.WriteLine("Failed to start test run.");
             }
             else
             {
+                testRunUuid = possibleTestRunUuid.Value;
+                Console.WriteLine($"Started a test run with UUID {testRunUuid}.");
                 // We added a new type to the enum, TestItemType.TEST_RUN .
                 // Note, however, that when StartTestItem is called, it looks for the parent node in _tree .
                 // A StartTestItem that is a top-level Suite, should NOT have a value for "parent item ID" filled in.
@@ -114,13 +113,14 @@ namespace RanorexOrangebeardListener
             if (testRunUuid != null)
             {
                 FinishTestRun finishTestRun = new FinishTestRun(); //TODO?~ What's the Status of the test run...? 
-                while (_tree != null && _tree.GetItemId().Value != testRunUuid.Value)
+                while (_tree != null && _tree.GetItemId().Value != testRunUuid)
                 {
-                    var finishTestItem = new FinishTestItem(testRunUuid.Value, Status.STOPPED);
+                    var finishTestItem = new FinishTestItem(testRunUuid, Status.STOPPED);
                     _orangebeard.FinishTestItem(_tree.GetItemId().Value, finishTestItem);
                     _tree = _tree.GetParent();
                 }
-                _orangebeard.FinishTestRun(testRunUuid.Value, finishTestRun);
+
+                _orangebeard.FinishTestRun(testRunUuid, finishTestRun);
             }
             //TODO?+ Old code had a "launchReporter.Sync()" call. Check if we need something similar here.
         }
@@ -152,27 +152,11 @@ namespace RanorexOrangebeardListener
             }
             else if (!HandlePotentialStartFinishLog(metaInfos))
             {
-                //if (useOldCode)
-                //{
-                    string attachmentMimeType = null;
-                    byte[] attachmentData = null;
-                    string attachmentFileName = null;
-                    PopulateAttachmentData(ref message, ref attachmentMimeType, ref attachmentData, ref attachmentFileName);
-                    LogToOrangebeard(level, category, message, attachmentData, attachmentMimeType, attachmentFileName, metaInfos);
-                //}
-                //else
-                //{
-                //    var fileInfo = RetrieveAttachmentData(ref message);
-                //    var logLevel = DetermineLogLevel(level.ToString()); //TODO?~ Is this correct?
-                //    var log = new Log(testRunUuid.Value, _tree.GetItemId().Value, logLevel, message);
-                //    _orangebeard.Log(log); //TODO?~ Should we send a Log and an SendAttachment with the SAME Test Item ID?!?!
-                //    if (fileInfo != null)
-                //    {
-                //        var attachmentFile = new Attachment.AttachmentFile(fileInfo);
-                //        var attachment = new Attachment(testRunUuid.Value, _tree.GetItemId().Value, logLevel, fileInfo.Name, attachmentFile);
-                //        _orangebeard.SendAttachment(attachment);
-                //    }
-                //}
+                string attachmentMimeType = null;
+                byte[] attachmentData = null;
+                string attachmentFileName = null;
+                PopulateAttachmentData(ref message, ref attachmentMimeType, ref attachmentData, ref attachmentFileName);
+                LogToOrangebeard(level, category, message, attachmentData, attachmentMimeType, attachmentFileName, metaInfos);
             }
         }
 
@@ -212,7 +196,6 @@ namespace RanorexOrangebeardListener
             }
         }
 
-        // If a message contains a filename, return the FileInfo for that file. Note that null is a valid result value here!
         /// <summary>
         /// If a message contains a file name, return a FileInfo instance for that file.
         /// If the message does not contain a filename, return a <code>null</code>.
@@ -262,21 +245,34 @@ namespace RanorexOrangebeardListener
             }
             var logLevel = DetermineLogLevel(level.Name);
             string logMessage = $"[{category}]: {message}";
+
+            var possibleItemId = _tree.GetItemId();
+            if (possibleItemId == null)
+            {
+                Console.WriteLine("No item ID found for log message. Discarding the following message:\r\n{logMessage}");
+                return;
+            }
+
+            var itemId = possibleItemId.Value; 
+            if (itemId.Equals(testRunUuid))
+            {
+                Console.WriteLine($"Cannot log message at Test Run level. Discarded message:\r\n{logMessage}");
+                return;
+            }
+
             if (attachmentData != null && attachmentFileName != null)
             {
                 FileInfo fileInfo = new FileInfo(attachmentFileName);
                 Attachment.AttachmentFile file = new Attachment.AttachmentFile(fileInfo);
-                //TODO!+ You want the logMessage in here, too....
-                Attachment logAndAttachment = new Attachment(testRunUuid.Value, _tree.GetItemId().Value, logLevel, attachmentFileName, file);
+                Attachment logAndAttachment = new Attachment(testRunUuid, itemId, logLevel, logMessage, file);
                 _orangebeard.SendAttachment(logAndAttachment);
             }
             else
             {
-                Log log = new Log(testRunUuid.Value, _tree.GetItemId().Value, logLevel, logMessage);
+                Log log = new Log(testRunUuid, itemId, logLevel, logMessage);
                 _orangebeard.Log(log);
             }
 
-            //TODO?~ Meta request... how are we going to handle the Test Item ID here?  Do Meta logs HAVE Test Item ID's? SHOULD they?
             if (MeetsMinimumSeverity(logLevel, LogLevel.warn) && metaInfos.Count >= 1)
             {
                 var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
@@ -286,11 +282,11 @@ namespace RanorexOrangebeardListener
                     meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
                 }
 
-                //TODO?~ Can we also get logs at the level of the test run?
-                Log metaRq = new Log(testRunUuid.Value, _tree.GetItemId().Value, logLevel, meta.ToString());
-                //TODO!+ Commented out for now. This one doesn't work yet, and sends more messages to demo. Until we got StartTestItem and non-meta Log working properly, let's not add the error messages that this one generates as well.
-                //_orangebeard.Log(metaRq);
+                Log metaRq = new Log(testRunUuid, itemId, LogLevel.debug, meta.ToString());
+                _orangebeard.Log(metaRq);
             }
+
+
         }
 
         /// <summary>
@@ -313,7 +309,27 @@ namespace RanorexOrangebeardListener
                 {
                     parentItemId = _tree?.GetItemId();
                 }
+
+                if (parentItemId == null)
+                {
+                    Console.WriteLine("About to start orphan test item.");
+                }
+                else
+                {
+                    Console.WriteLine($"About to start test item with parent item id {parentItemId.Value}.");
+                }
+
+
                 var testItemId = _orangebeard.StartTestItem(parentItemId, startTestItem);
+
+                if (testItemId == null)
+                {
+                    Console.WriteLine("Failed to start new test item!");
+                }
+                else
+                {
+                    Console.WriteLine($"New test item has ID {testItemId.Value}.");
+                }
                 UpdateTree(startTestItem, testItemId);
                 //TODO?+
                 return true;
@@ -428,7 +444,7 @@ namespace RanorexOrangebeardListener
                     break;
             }
 
-            return new StartTestItem(testRunUuid.Value, name + namePostfix, type, description, attributes);
+            return new StartTestItem(testRunUuid, name + namePostfix, type, description, attributes);
         }
 
         private FinishTestItem DetermineFinishTestItem(string result)
@@ -450,7 +466,7 @@ namespace RanorexOrangebeardListener
             }
 
             // Note that the FinishTestItem constructor automatically fills in its end time as the current time.
-            return new FinishTestItem(testRunUuid.Value, status);
+            return new FinishTestItem(testRunUuid, status);
         }
 
         private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
@@ -463,49 +479,32 @@ namespace RanorexOrangebeardListener
                     if (item.ScreenshotFileName != null && !_reportedErrorScreenshots.Contains(item.ScreenshotFileName))
                     {
                         var fullPathName = $"{TestReport.ReportEnvironment.ReportFileDirectory}\\{item.ScreenshotFileName}";
-                        if (useOldCode)
+                        try
                         {
-                            try
-                            {
-                                //TODO!~ This passes the image filename, but NOT the directory where the screenshot is!
-                                // The solution is to start using our own stuff....
-                                LogData(
-                                    level:      item.Level,
-                                    category:   "Screenshot",
-                                    message:    $"{item.Message}\r\nScreenshot file name: {item.ScreenshotFileName}",
-                                    data:       Image.FromFile($"{TestReport.ReportEnvironment.ReportFileDirectory}\\{item.ScreenshotFileName}"),
-                                    metaInfos:  new IndexedDictionary<string, string>()
-                                                {
-                                                    //new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName))
-                                                    new KeyValuePair<string, string>("attachmentFileName", fullPathName)
-                                                });
+                            LogData(
+                                level:      item.Level,
+                                category:   "Screenshot",
+                                message:    $"{item.Message}\r\nScreenshot file name: {item.ScreenshotFileName}",
+                                data:       Image.FromFile($"{TestReport.ReportEnvironment.ReportFileDirectory}\\{item.ScreenshotFileName}"),
+                                metaInfos:  new IndexedDictionary<string, string>()
+                                            {
+                                                //new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName))
+                                                new KeyValuePair<string, string>("attachmentFileName", fullPathName)
+                                            });
 
-                                _reportedErrorScreenshots.Add(item.ScreenshotFileName);
-                            }
-                            catch (Exception e)
-                            {
-                                LogToOrangebeard(
-                                    level:              item.Level,
-                                    category:           "Screenshot",
-                                    message:            $"Exception getting screenshot: {e.Message}\r\n{e.GetType()}: {e.StackTrace}",
-                                    attachmentData:     null,
-                                    mimeType:           null,
-                                    attachmentFileName: null,
-                                    metaInfos:          new IndexedDictionary<string, string>()
-                                    );
-                            }
-                        }
-                        else
-                        {
-                            //TODO?- In this case the old code seems to work well with the new client...
-
-                            var fileInfo = new FileInfo(fullPathName);
-                            var attachmentFile = new Attachment.AttachmentFile(fileInfo);
-                            var logLevel = DetermineLogLevel(item.Level.ToString()); //TODO?~ Is this correct?
-                            //TODO?+ Handle the case that _tree == null ... ?
-                            var attachment = new Attachment(testRunUuid.Value, _tree.GetItemId().Value, logLevel, fileInfo.Name, attachmentFile);
-                            _orangebeard.SendAttachment(attachment);
                             _reportedErrorScreenshots.Add(item.ScreenshotFileName);
+                        }
+                        catch (Exception e)
+                        {
+                            LogToOrangebeard(
+                                level:              item.Level,
+                                category:           "Screenshot",
+                                message:            $"Exception getting screenshot: {e.Message}\r\n{e.GetType()}: {e.StackTrace}",
+                                attachmentData:     null,
+                                mimeType:           null,
+                                attachmentFileName: null,
+                                metaInfos:          new IndexedDictionary<string, string>()
+                                );
                         }
                     }
                 }
@@ -543,7 +542,7 @@ namespace RanorexOrangebeardListener
             //TODO!~ Check if we also change the description. Maybe "attrs" contains a  "description" element, too.
             string testRunDescription = _config.Description;
             var update = new UpdateTestRun(testRunDescription, attrSet);
-            _orangebeard.UpdateTestRun(testRunUuid.Value, update);
+            _orangebeard.UpdateTestRun(testRunUuid, update);
         }
 
         private static LogLevel DetermineLogLevel(string levelStr)
