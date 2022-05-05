@@ -152,26 +152,15 @@ namespace RanorexOrangebeardListener
             }
             else if (!HandlePotentialStartFinishLog(metaInfos))
             {
-                if (useOldCode)
+                var fileInfo = RetrieveAttachmentData(ref message);
+                var logLevel = DetermineLogLevel(level.ToString()); //TODO?~ Is this correct?
+                var log = new Log(testRunUuid.Value, _tree.GetItemId().Value, logLevel, message);
+                _orangebeard.Log(log); //TODO?~ Should we send a Log and an SendAttachment with the SAME Test Item ID?!?!
+                if (fileInfo != null)
                 {
-                    string attachmentMimeType = null;
-                    byte[] attachmentData = null;
-                    string attachmentFileName = null;
-                    PopulateAttachmentData(ref message, ref attachmentMimeType, ref attachmentData, ref attachmentFileName);
-                    LogToOrangebeard(level, category, message, attachmentData, attachmentMimeType, attachmentFileName, metaInfos);
-                }
-                else
-                {
-                    var fileInfo = RetrieveAttachmentData(ref message);
-                    var logLevel = DetermineLogLevel(level.ToString()); //TODO?~ Is this correct?
-                    var log = new Log(testRunUuid.Value, _tree.GetItemId().Value, logLevel, message);
-                    _orangebeard.Log(log); //TODO?~ Should we send a Log and an SendAttachment with the SAME Test Item ID?!?!
-                    if (fileInfo != null)
-                    {
-                        var attachmentFile = new Attachment.AttachmentFile(fileInfo);
-                        var attachment = new Attachment(testRunUuid.Value, _tree.GetItemId().Value, logLevel, fileInfo.Name, attachmentFile);
-                        _orangebeard.SendAttachment(attachment);
-                    }
+                    var attachmentFile = new Attachment.AttachmentFile(fileInfo);
+                    var attachment = new Attachment(testRunUuid.Value, _tree.GetItemId().Value, logLevel, fileInfo.Name, attachmentFile);
+                    _orangebeard.SendAttachment(attachment);
                 }
             }
         }
@@ -210,43 +199,6 @@ namespace RanorexOrangebeardListener
                 }
             }
             return null;
-        }
-
-        //TODO!- In the new Orangebeard Client, we simply supply the FileInfo, and the client checks for mime type and data.
-        // No need to do it here.
-        private void PopulateAttachmentData(ref string message, ref string attachmentMimeType, ref byte[] attachmentData, ref string attachmentFileName)
-        {
-            if (_config.FileUploadPatterns == null || _config.FileUploadPatterns.Count == 0)
-            {
-                //nothing to look for!
-                return;
-            }
-            Match match = Regex.Match(message, FILE_PATH_PATTERN);
-            if (match.Success) //Look only at first match, as we support max 1 attachment per log entry
-            {
-                string filePath = match.Value;
-                Match patternMatch;
-                foreach (string pattern in _config.FileUploadPatterns)
-                {
-                    patternMatch = Regex.Match(filePath, pattern);
-                    if (patternMatch.Success && Path.IsPathRooted(filePath)) //Ignore relative paths, as they are likely user-generated and tool dependent in html logs
-                    {
-                        try
-                        {
-                            attachmentData = File.ReadAllBytes(filePath);
-                            attachmentFileName = Path.GetFileName(filePath);
-                            attachmentMimeType = Orangebeard.Shared.MimeTypes.MimeTypeMap.GetMimeType(Path.GetExtension(filePath));
-                            return; 
-                        } catch (Exception e)
-                        {
-                            attachmentMimeType = null;
-                            attachmentData = null;
-                            attachmentFileName = null;
-                            message = $"{message}\r\nFailed to attach {filePath} ({e.Message})";
-                        }                        
-                    }
-                }
-            }
         }
 
         private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData, string mimeType, string attachmentFileName,
@@ -465,15 +417,14 @@ namespace RanorexOrangebeardListener
                                 //TODO!~ This passes the image filename, but NOT the directory where the screenshot is!
                                 // The solution is to start using our own stuff....
                                 LogData(
-                                    item.Level,
-                                    "Screenshot",
-                                    item.Message + "\r\n" +
-                                    "Screenshot file name: " + item.ScreenshotFileName,
-                                    Image.FromFile(TestReport.ReportEnvironment.ReportFileDirectory + "\\" + item.ScreenshotFileName),
-                                    new IndexedDictionary<string, string>()
-                                    {
-                                    new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName))
-                                    });
+                                    level:      item.Level,
+                                    category:   "Screenshot",
+                                    message:    $"{item.Message}\r\nScreenshot file name: {item.ScreenshotFileName}",
+                                    data:       Image.FromFile($"{TestReport.ReportEnvironment.ReportFileDirectory}\\{item.ScreenshotFileName}"),
+                                    metaInfos:  new IndexedDictionary<string, string>()
+                                                {
+                                                    new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName))
+                                                });
 
                                 _reportedErrorScreenshots.Add(item.ScreenshotFileName);
                             }
