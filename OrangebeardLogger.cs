@@ -8,6 +8,13 @@
  * limitations under the License.
  */
 
+using Orangebeard.Client;
+using Orangebeard.Client.Entities;
+using Orangebeard.Client.OrangebeardProperties;
+using Ranorex;
+using Ranorex.Core;
+using Ranorex.Core.Reporting;
+using Ranorex.Core.Testing;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -17,14 +24,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using Orangebeard.Client;
-using Orangebeard.Client.Entities;
-using Orangebeard.Client.OrangebeardProperties;
-using Ranorex;
-using Ranorex.Core;
-using Ranorex.Core.Reporting;
-using Ranorex.Core.Testing;
-using DateTime = System.DateTime;
 using ItemAttribute = Orangebeard.Client.Entities.Attribute;
 using LogLevel = Orangebeard.Client.Entities.LogLevel;
 
@@ -33,19 +32,22 @@ namespace RanorexOrangebeardListener
     // ReSharper disable once UnusedMember.Global
     public class OrangebeardLogger : IReportLogger
     {
-        //TODO!+ Add some logging. Unfortunately Microsoft's documentation is sloppy on how to do this properly unless you use .NET Core.
-        //public static Func<string, Microsoft.Extensions.Logging.LogLevel, bool> filter = (str, lvl) => true;
-        //public ILogger logger; // = new Microsoft.Extensions.Logging.Console.ConsoleLogger("ROLLogger", filter, null);
-        //private static ConsoleLoggerOptions options = new ConsoleLoggerOptions();
-        //private static IOptionsMonitor<ConsoleLoggerOptions> monitor = new OptionsMonitor<ConsoleLoggerOptions>();
-        //private static ConsoleLoggerProvider provider = new ConsoleLoggerProvider(options);
-        //public ILogger logger = provider.CreateLogger("ConsoleLogger");
 
+        /// <summary>
+        /// A very simple console logger.
+        /// The ultimate purpose is to implement ILogger or use an existing ILogger implementation.
+        /// </summary>
+        class SimpleConsoleLogger
+        {
+            public void LogError(string str) => Console.WriteLine(str);
+        }
+
+        private static readonly SimpleConsoleLogger logger = new SimpleConsoleLogger();
 
         private readonly OrangebeardV2Client _orangebeard;
 
         private Guid testRunUuid;
-        
+
         private readonly OrangebeardConfiguration _config;
         private readonly List<string> _reportedErrorScreenshots = new List<string>();
 
@@ -93,8 +95,7 @@ namespace RanorexOrangebeardListener
             var possibleTestRunUuid = _orangebeard.StartTestRun(startTestRun);
             if (possibleTestRunUuid == null)
             {
-                //TODO!~ Use a logger.
-                Console.WriteLine("Failed to start test run.");
+                logger.LogError("Failed to start test run.");
             }
             else
             {
@@ -112,7 +113,7 @@ namespace RanorexOrangebeardListener
         {
             if (testRunUuid != null)
             {
-                FinishTestRun finishTestRun = new FinishTestRun(); //TODO?~ What's the Status of the test run...? 
+                FinishTestRun finishTestRun = new FinishTestRun();
                 while (_tree != null && _tree.GetItemId().Value != testRunUuid)
                 {
                     var finishTestItem = new FinishTestItem(testRunUuid, Status.STOPPED);
@@ -122,7 +123,6 @@ namespace RanorexOrangebeardListener
 
                 _orangebeard.FinishTestRun(testRunUuid, finishTestRun);
             }
-            //TODO?+ Old code had a "launchReporter.Sync()" call. Check if we need something similar here.
         }
 
         // This method is part of the IReportLogger interface.
@@ -132,7 +132,7 @@ namespace RanorexOrangebeardListener
             //Currently only screenshot attachments are supported. Can Ranorex attach anything else?
             if (!(data is Image)) return;
 
-            var img = (Image) data;
+            var img = (Image)data;
             using (var ms = new MemoryStream())
             {
                 img.Save(ms, ImageFormat.Jpeg);
@@ -249,14 +249,14 @@ namespace RanorexOrangebeardListener
             var possibleItemId = _tree.GetItemId();
             if (possibleItemId == null)
             {
-                Console.WriteLine("No item ID found for log message. Discarding the following message:\r\n{logMessage}");
+                logger.LogError("No item ID found for log message. Discarding the following message:\r\n{logMessage}");
                 return;
             }
 
-            var itemId = possibleItemId.Value; 
+            var itemId = possibleItemId.Value;
             if (itemId.Equals(testRunUuid))
             {
-                Console.WriteLine($"Cannot log message at Test Run level. Discarded message:\r\n{logMessage}");
+                logger.LogError($"Cannot log message at Test Run level. Discarded message:\r\n{logMessage}");
                 return;
             }
 
@@ -292,14 +292,14 @@ namespace RanorexOrangebeardListener
         /// <summary>
         /// We have a log item; it can be a Start log item, a Finish log item, or another type of log item.
         /// This method checks if the item is a Start log item or a Finish log item, and if so, handles them accordingly.
-        /// In this case, the method returns <code>true</code> to tell the caller that the log item has been handled.
-        /// Otherwise (in other words, if no log items were handled) this method returns <code>false</code>.
+        /// In this case, the method returns <code>true</code> to tell the caller that the log item has was a Start log item or a Finish log item.
+        /// Otherwise (in other words, if we did not find a Start log item or a Finish log item) this method returns <code>false</code>.
         /// </summary>
         /// <param name="info">Information obtained from Ranorex that describes the log item.</param>
-        /// <returns><code>true</code> if a Start test item or Finish test item were handled; <code>false</code> otherwise.</returns>
+        /// <returns><code>true</code> if a Start Test Item or Finish Test Item were found; <code>false</code> otherwise.</returns>
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
-            if (!info.ContainsKey("activity")) return false;          
+            if (!info.ContainsKey("activity")) return false;
 
             if (!info.ContainsKey("result"))
             {
@@ -309,42 +309,26 @@ namespace RanorexOrangebeardListener
                 {
                     parentItemId = _tree?.GetItemId();
                 }
-
-                if (parentItemId == null)
-                {
-                    Console.WriteLine("About to start orphan test item.");
-                }
-                else
-                {
-                    Console.WriteLine($"About to start test item with parent item id {parentItemId.Value}.");
-                }
-
-
                 var testItemId = _orangebeard.StartTestItem(parentItemId, startTestItem);
-
-                if (testItemId == null)
-                {
-                    Console.WriteLine("Failed to start new test item!");
-                }
-                else
-                {
-                    Console.WriteLine($"New test item has ID {testItemId.Value}.");
-                }
                 UpdateTree(startTestItem, testItemId);
-                //TODO?+
                 return true;
             }
             else
             {
                 var finishTestItem = DetermineFinishTestItem(info["result"]);
-                var itemId = _tree.GetItemId();
-                //TODO?+ Null check on itemId ?
+                var itemId = _tree?.GetItemId();
+                if (itemId == null)
+                {
+                    logger.LogError($"Cannot find the Item ID for a FinishTestItem request! The FinishTestItem request is:\r\n{finishTestItem}");
+                    return true; // We return `true` because what we found was a Finish Test Item; even if we failed to handle it the way we wanted.
+                }
+
                 _orangebeard.FinishTestItem(itemId.Value, finishTestItem);
                 if (_tree.ItemType == TestItemType.TEST)
                 {
                     _isTestCaseOrDescendant = false;
                 }
-                _tree = _tree.GetParent(); 
+                _tree = _tree.GetParent();
                 return true;
             }
 
@@ -367,7 +351,7 @@ namespace RanorexOrangebeardListener
             }
         }
 
-        private StartTestItem DetermineStartTestItem(string activityType, IDictionary<string,string> info)
+        private StartTestItem DetermineStartTestItem(string activityType, IDictionary<string, string> info)
         {
             TestItemType type = TestItemType.STEP;
             string name = "", namePostfix = "";
@@ -470,7 +454,7 @@ namespace RanorexOrangebeardListener
         }
 
         private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
-        {           
+        {
             foreach (var reportItem in reportItems)
             {
                 if (reportItem.GetType() == typeof(ReportItem))
@@ -482,11 +466,11 @@ namespace RanorexOrangebeardListener
                         try
                         {
                             LogData(
-                                level:      item.Level,
-                                category:   "Screenshot",
-                                message:    $"{item.Message}\r\nScreenshot file name: {item.ScreenshotFileName}",
-                                data:       Image.FromFile($"{TestReport.ReportEnvironment.ReportFileDirectory}\\{item.ScreenshotFileName}"),
-                                metaInfos:  new IndexedDictionary<string, string>()
+                                level     : item.Level,
+                                category  : "Screenshot",
+                                message   : $"{item.Message}\r\nScreenshot file name: {item.ScreenshotFileName}",
+                                data      : Image.FromFile($"{TestReport.ReportEnvironment.ReportFileDirectory}\\{item.ScreenshotFileName}"),
+                                metaInfos : new IndexedDictionary<string, string>()
                                             {
                                                 //new KeyValuePair<string, string>("attachmentFileName", Path.GetFileName(item.ScreenshotFileName))
                                                 new KeyValuePair<string, string>("attachmentFileName", fullPathName)
@@ -497,13 +481,13 @@ namespace RanorexOrangebeardListener
                         catch (Exception e)
                         {
                             LogToOrangebeard(
-                                level:              item.Level,
-                                category:           "Screenshot",
-                                message:            $"Exception getting screenshot: {e.Message}\r\n{e.GetType()}: {e.StackTrace}",
-                                attachmentData:     null,
-                                mimeType:           null,
-                                attachmentFileName: null,
-                                metaInfos:          new IndexedDictionary<string, string>()
+                                level              : item.Level,
+                                category           : "Screenshot",
+                                message            : $"Exception getting screenshot: {e.Message}\r\n{e.GetType()}: {e.StackTrace}",
+                                attachmentData     : null,
+                                mimeType           : null,
+                                attachmentFileName : null,
+                                metaInfos          : new IndexedDictionary<string, string>()
                                 );
                         }
                     }
@@ -517,13 +501,13 @@ namespace RanorexOrangebeardListener
 
         private static string DescriptionForCurrentContainer()
         {
-            var entry = (TestSuiteEntry) TestSuite.CurrentTestContainer;
+            var entry = (TestSuiteEntry)TestSuite.CurrentTestContainer;
             return entry.Comment;
         }
 
         private void UpdateTestrunWithSystemInfo(string message)
         {
-            var launchAttrEntries = message.Split(new[] {"\r\n", "\r", "\n"}, StringSplitOptions.None);
+            var launchAttrEntries = message.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
             var attrs = (
                 from entry in launchAttrEntries
@@ -539,8 +523,12 @@ namespace RanorexOrangebeardListener
                 );
             var attrSet = new HashSet<ItemAttribute>(attrs);
 
-            //TODO!~ Check if we also change the description. Maybe "attrs" contains a  "description" element, too.
             string testRunDescription = _config.Description;
+            var newDescription = attrs.First(x => String.Compare(x.Key, "Description", ignoreCase: true) == 0);
+            if (newDescription != null)
+            {
+                testRunDescription = newDescription.Value;
+            }
             var update = new UpdateTestRun(testRunDescription, attrSet);
             _orangebeard.UpdateTestRun(testRunUuid, update);
         }
@@ -548,15 +536,33 @@ namespace RanorexOrangebeardListener
         private static LogLevel DetermineLogLevel(string levelStr)
         {
             LogLevel level;
-            var logLevel = char.ToUpper(levelStr[0]) + levelStr.Substring(1); //TODO?- This was done when the log levels where enums whose symbols started with a capital letter. Enum.IsDefined is case sensitive.
-            if (Enum.IsDefined(typeof(LogLevel), levelStr.ToLower()))
+
+            // Case-insensitive test to see if the given "levelStr" exists in our LogLevel enum.
+            string[] logLevelNames = Enum.GetNames(typeof(LogLevel));
+            bool levelStrContained = logLevelNames.Any(logLevelName => string.Compare(logLevelName, levelStr, StringComparison.InvariantCultureIgnoreCase) == 0);
+
+
+            if (levelStrContained)
+            {
                 level = (LogLevel)Enum.Parse(typeof(LogLevel), levelStr.ToLower());
-            else if (logLevel.Equals("Failure", StringComparison.InvariantCultureIgnoreCase))
+            }
+            else if (levelStr.Equals("Success", StringComparison.InvariantCultureIgnoreCase))
+            {
+                level = LogLevel.info;
+            }
+            else if (levelStr.Equals("Failure", StringComparison.InvariantCultureIgnoreCase))
+            {
                 level = LogLevel.error;
-            else if (logLevel.Equals("Warn", StringComparison.InvariantCultureIgnoreCase))
+            }
+            else if (levelStr.Equals("Warn", StringComparison.InvariantCultureIgnoreCase))
+            {
                 level = LogLevel.warn;
+            }
             else
-                level = LogLevel.info;  //TODO?~ Shouldn't the default log level be "unknown", rather than "info" ?
+            {
+                logger.LogError($"Unknown log level: {levelStr}");
+                level = LogLevel.unknown;
+            }
             return level;
         }
 
