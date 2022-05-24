@@ -111,6 +111,7 @@ namespace RanorexOrangebeardListener
 
         public void End()
         {
+            Report.SystemSummary();
             if (testRunUuid != null)
             {
                 FinishTestRun finishTestRun = new FinishTestRun();
@@ -524,7 +525,7 @@ namespace RanorexOrangebeardListener
             var attrSet = new HashSet<ItemAttribute>(attrs);
 
             string testRunDescription = _config.Description;
-            var newDescription = attrs.First(x => String.Compare(x.Key, "Description", ignoreCase: true) == 0);
+            var newDescription = attrs.FirstOrDefault(x => String.Compare(x.Key, "Description", ignoreCase: true) == 0);
             if (newDescription != null)
             {
                 testRunDescription = newDescription.Value;
