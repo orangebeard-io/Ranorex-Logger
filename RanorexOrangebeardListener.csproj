@@ -7,9 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="Orangebeard.Client">
-      <HintPath>..\dotnet-client\src\Orangebeard.Client\bin\Debug\net45\Orangebeard.Client.dll</HintPath>
-    </Reference>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">
       <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
@@ -26,6 +23,7 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Orangebeard.Client" Version="2.0.0.1" />
   </ItemGroup>
 
 </Project>
