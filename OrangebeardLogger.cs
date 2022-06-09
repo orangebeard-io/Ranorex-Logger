@@ -9,6 +9,7 @@
  */
 
 using Orangebeard.Client;
+using Orangebeard.Client.Abstractions.Models;
 using Orangebeard.Client.Entities;
 using Orangebeard.Client.OrangebeardProperties;
 using Ranorex;
@@ -181,7 +182,7 @@ namespace RanorexOrangebeardListener
                         try
                         {
                             attachmentData = File.ReadAllBytes(filePath);
-                            attachmentFileName = Path.GetFileName(filePath);
+                            attachmentFileName = Path.GetFullPath(filePath);
                             attachmentMimeType = Orangebeard.Shared.MimeTypes.MimeTypeMap.GetMimeType(Path.GetExtension(filePath));
                             return;
                         }
@@ -195,46 +196,6 @@ namespace RanorexOrangebeardListener
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// If a message contains a file name, return a FileInfo instance for that file.
-        /// If the message does not contain a filename, return a <code>null</code>.
-        /// If creating the FileInfo instance fails, an error message is written into the <paramref name="message">message</paramref> parameter.
-        /// </summary>
-        /// <param name="message">Log message that may be a filename.</param>
-        /// <returns>A FileInfo object for the file specified in the <paramref name="message">message</paramref> parameter, or <code>null</code> if the parameter does not contain a file name.</returns>
-        private FileInfo RetrieveAttachmentData(ref string message)
-        {
-            if (_config.FileUploadPatterns == null || _config.FileUploadPatterns.Count == 0)
-            {
-                //nothing to look for!
-                return null;
-            }
-            Match match = Regex.Match(message, FILE_PATH_PATTERN);
-            if (!match.Success)
-            {
-                return null;
-            }
-            // Look only at the first match, as we support max 1 attachment per log entry
-            string filePath = match.Value;
-            Match patternMatch;
-            foreach (string pattern in _config.FileUploadPatterns)
-            {
-                patternMatch = Regex.Match(filePath, pattern);
-                if (patternMatch.Success && Path.IsPathRooted(filePath)) //Ignore relative paths, as they are likely user-generated and tool-dependent in HTML logs.
-                {
-                    try
-                    {
-                        return new FileInfo(filePath);
-                    }
-                    catch (Exception exc)
-                    {
-                        message = $"{message}\r\nFailed to attach {filePath} ({exc.Message})";
-                    }
-                }
-            }
-            return null;
         }
 
         private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData, string mimeType, string attachmentFileName,

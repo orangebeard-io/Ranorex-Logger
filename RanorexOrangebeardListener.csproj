@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <Reference Include="Orangebeard.Client">
-      <HintPath>..\dotnet-client-v2\dotnet-client-v2\bin\Debug\netstandard2.0\Orangebeard.Client.dll</HintPath>
+      <HintPath>..\dotnet-client\src\Orangebeard.Client\bin\Debug\net45\Orangebeard.Client.dll</HintPath>
     </Reference>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">

@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
+using Orangebeard.Client.Abstractions.Models;
 using Orangebeard.Client.Entities;
 using System;
 using System.Collections.Generic;
