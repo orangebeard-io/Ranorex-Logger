@@ -231,7 +231,7 @@ namespace RanorexOrangebeardListener
             }
             else
             {
-                Log log = new Log(testRunUuid, itemId, logLevel, logMessage);
+                Log log = new Log(testRunUuid, itemId, logLevel, logMessage, LogFormat.PLAIN_TEXT);
                 _orangebeard.Log(log);
             }
 
@@ -244,7 +244,7 @@ namespace RanorexOrangebeardListener
                     meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
                 }
 
-                Log metaRq = new Log(testRunUuid, itemId, LogLevel.debug, meta.ToString());
+                Log metaRq = new Log(testRunUuid, itemId, LogLevel.debug, meta.ToString(), LogFormat.PLAIN_TEXT);
                 _orangebeard.Log(metaRq);
             }
 
