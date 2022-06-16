@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net462</TargetFramework>
-    <Version>1.1.0.10</Version>
-    <AssemblyVersion>1.1.0.10</AssemblyVersion>
+    <Version>1.1.0.11</Version>
+    <AssemblyVersion>1.1.0.11</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
