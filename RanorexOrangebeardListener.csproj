@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net462</TargetFramework>
+	<TargetFramework>net462</TargetFramework>
+	<!-- TargetFramework>netcoreapp3.1</TargetFramework -->
     <Version>1.1.0.11</Version>
     <AssemblyVersion>1.1.0.11</AssemblyVersion>
   </PropertyGroup>
@@ -9,10 +10,10 @@
   <ItemGroup>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
+      <HintPath>bin\Debug\net462\Ranorex.Core.dll</HintPath>
     </Reference>
     <Reference Include="Ranorex.Libs.Util">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
+      <HintPath>bin\Debug\net462\Ranorex.Libs.Util.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>

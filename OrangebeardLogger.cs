@@ -270,7 +270,23 @@ namespace RanorexOrangebeardListener
                 if (_tree != null && _tree.ItemType != TestItemType.TEST_RUN)
                 {
                     parentItemId = _tree?.GetItemId();
+                } 
+                else
+                {
+                    // There is no parent item. If the item we want to create is a Suite, then that's fine: it'll be the top Suite.
+                    // But if it isn't... then we should create a suite FOR it.
+                    if (startTestItem.Type != TestItemType.SUITE)
+                    {
+                        string name = ((TestSuite)TestSuite.Current).Children[0].Name;
+                        string description = ((TestSuite)TestSuite.Current).Children[0].Comment;
+                        var attributes = new HashSet<ItemAttribute> { new ItemAttribute(value: "Suite") };
+
+                        StartTestItem topLevelSuite = new StartTestItem(testRunUuid, name, TestItemType.SUITE, description, attributes);
+                        parentItemId =_orangebeard.StartTestItem(null, topLevelSuite);
+                        UpdateTree(topLevelSuite, parentItemId);
+                    }
                 }
+
                 var testItemId = _orangebeard.StartTestItem(parentItemId, startTestItem);
                 UpdateTree(startTestItem, testItemId);
                 return true;
