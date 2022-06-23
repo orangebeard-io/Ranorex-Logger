@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
 	<TargetFramework>net462</TargetFramework>
@@ -10,10 +10,10 @@
   <ItemGroup>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">
-      <HintPath>bin\Debug\net462\Ranorex.Core.dll</HintPath>
+      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
     </Reference>
     <Reference Include="Ranorex.Libs.Util">
-      <HintPath>bin\Debug\net462\Ranorex.Libs.Util.dll</HintPath>
+      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>

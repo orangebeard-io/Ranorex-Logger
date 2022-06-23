@@ -57,7 +57,7 @@ namespace RanorexOrangebeardListener
         /// When converting Ranorex items to Orangebeard items, the context is important.
         /// A Ranorex Smart Folder can become an Orangebeard Suite or an Orangebeard Step, depending on where it appears.
         /// </summary>
-        private TypeTree _tree = null;
+        public TypeTree Tree { get; private set; } = null;
 
         /// <summary>
         /// Indicates if the current Ranorex item maps to an Orangebeard Test, or a descendant of an Orangebeard Test.
@@ -70,11 +70,12 @@ namespace RanorexOrangebeardListener
         internal const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
 
         private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{0,2}\\))([^\b%\/\|:\n<>""']*))";
-        private const string TESTSUITE = "testsuite";
-        private const string TESTCONTAINER = "testcontainer";
-        private const string SMARTFOLDER_DATAITERATION = "smartfolder_dataiteration";
-        private const string TESTCASE_DATAITERATION = "testcase_dataiteration";
-        private const string TESTMODULE = "testmodule";
+
+        public const string TESTSUITE = "testsuite";
+        public const string TESTCONTAINER = "testcontainer";
+        public const string SMARTFOLDER_DATAITERATION = "smartfolder_dataiteration";
+        public const string TESTCASE_DATAITERATION = "testcase_dataiteration";
+        public const string TESTMODULE = "testmodule";
 
         public OrangebeardLogger()
         {
@@ -86,6 +87,16 @@ namespace RanorexOrangebeardListener
             _orangebeard = new OrangebeardV2Client(_config, true);
 
             _changedComponents = ChangedComponentsList.Load();
+        }
+
+        private OrangebeardLogger(int dummy)
+        {
+
+        }
+
+        public static OrangebeardLogger CreateMockOrangebeardLogger()
+        {
+            return new OrangebeardLogger(1);
         }
 
         public bool PreFilterMessages => false;
@@ -106,7 +117,7 @@ namespace RanorexOrangebeardListener
                 // Note, however, that when StartTestItem is called, it looks for the parent node in _tree .
                 // A StartTestItem that is a top-level Suite, should NOT have a value for "parent item ID" filled in.
                 // We need to check this in the code that starts a new Test Item.
-                _tree = new TypeTree(TestItemType.TEST_RUN, _config.TestSetName, testRunUuid);
+                Tree = new TypeTree(TestItemType.TEST_RUN, _config.TestSetName, testRunUuid);
             }
         }
 
@@ -116,11 +127,11 @@ namespace RanorexOrangebeardListener
             if (testRunUuid != null)
             {
                 FinishTestRun finishTestRun = new FinishTestRun();
-                while (_tree != null && _tree.GetItemId().Value != testRunUuid)
+                while (Tree != null && Tree.GetItemId().Value != testRunUuid)
                 {
                     var finishTestItem = new FinishTestItem(testRunUuid, Status.STOPPED);
-                    _orangebeard.FinishTestItem(_tree.GetItemId().Value, finishTestItem);
-                    _tree = _tree.GetParent();
+                    _orangebeard.FinishTestItem(Tree.GetItemId().Value, finishTestItem);
+                    Tree = Tree.GetParent();
                 }
 
                 _orangebeard.FinishTestRun(testRunUuid, finishTestRun);
@@ -208,7 +219,7 @@ namespace RanorexOrangebeardListener
             var logLevel = DetermineLogLevel(level.Name);
             string logMessage = $"[{category}]: {message}";
 
-            var possibleItemId = _tree.GetItemId();
+            var possibleItemId = Tree.GetItemId();
             if (possibleItemId == null)
             {
                 logger.LogError("No item ID found for log message. Discarding the following message:\r\n{logMessage}");
@@ -259,7 +270,7 @@ namespace RanorexOrangebeardListener
         /// </summary>
         /// <param name="info">Information obtained from Ranorex that describes the log item.</param>
         /// <returns><code>true</code> if a Start Test Item or Finish Test Item were found; <code>false</code> otherwise.</returns>
-        private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
+        public bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
             if (!info.ContainsKey("activity")) return false;
 
@@ -267,9 +278,9 @@ namespace RanorexOrangebeardListener
             {
                 var startTestItem = DetermineStartTestItem(info["activity"], info);
                 Guid? parentItemId = null;
-                if (_tree != null && _tree.ItemType != TestItemType.TEST_RUN)
+                if (Tree != null && Tree.ItemType != TestItemType.TEST_RUN)
                 {
-                    parentItemId = _tree?.GetItemId();
+                    parentItemId = Tree?.GetItemId();
                 } 
                 else
                 {
@@ -277,13 +288,7 @@ namespace RanorexOrangebeardListener
                     // But if it isn't... then we should create a suite FOR it.
                     if (startTestItem.Type != TestItemType.SUITE)
                     {
-                        string name = ((TestSuite)TestSuite.Current).Children[0].Name;
-                        string description = ((TestSuite)TestSuite.Current).Children[0].Comment;
-                        var attributes = new HashSet<ItemAttribute> { new ItemAttribute(value: "Suite") };
-
-                        StartTestItem topLevelSuite = new StartTestItem(testRunUuid, name, TestItemType.SUITE, description, attributes);
-                        parentItemId =_orangebeard.StartTestItem(null, topLevelSuite);
-                        UpdateTree(topLevelSuite, parentItemId);
+                        parentItemId = CreateAndStartTopLevelSuite();
                     }
                 }
 
@@ -294,33 +299,63 @@ namespace RanorexOrangebeardListener
             else
             {
                 var finishTestItem = DetermineFinishTestItem(info["result"]);
-                var itemId = _tree?.GetItemId();
+
+                // It is possible that we get a "result" when no test item has been started.
+                // This happens when the Orangebeard Logger is started as part of a test suite; then the suite is already started, then reports that something is finished.
+                // So, BEFORE building a FinishTestItem, we check if there is a top level suite; and if there isn't, we create one.
+
+                if (Tree == null || Tree.GetParent() == null) // TODO?~ Shouldn't this just be:  if (Tree.ItemType == TestItemType.TEST_RUN)
+                {
+                    Guid suiteId = CreateAndStartTopLevelSuite().Value;
+
+                    // If we reach here, we have to finish a test item, for which the Orangebeard Logger has not received a start event.
+                    // So we (retroactively) create a start test item.
+                    StartTestItem startTestItem = DetermineStartTestItem(info["activity"], info);
+                    var testItemId = _orangebeard.StartTestItem(suiteId, startTestItem);
+                    UpdateTree(startTestItem, testItemId);
+                }
+
+                var itemId = Tree?.GetItemId();
                 if (itemId == null)
                 {
                     logger.LogError($"Cannot find the Item ID for a FinishTestItem request! The FinishTestItem request is:\r\n{finishTestItem}");
                     return true; // We return `true` because what we found was a Finish Test Item; even if we failed to handle it the way we wanted.
                 }
 
+                //TODO?+ Is it possible that it tries to do this on a *FinishTestRun* ?
                 _orangebeard.FinishTestItem(itemId.Value, finishTestItem);
-                if (_tree.ItemType == TestItemType.TEST)
+                if (Tree.ItemType == TestItemType.TEST)
                 {
                     _isTestCaseOrDescendant = false;
                 }
-                _tree = _tree.GetParent();
+                Tree = Tree.GetParent();
                 return true;
             }
 
         }
 
+        private Guid? CreateAndStartTopLevelSuite()
+        {
+            Guid? parentItemId;
+            string name = ((TestSuite)TestSuite.Current).Children[0].Name;
+            string description = ((TestSuite)TestSuite.Current).Children[0].Comment;
+            var attributes = new HashSet<ItemAttribute> { new ItemAttribute(value: "Suite") };
+
+            StartTestItem topLevelSuite = new StartTestItem(testRunUuid, name, TestItemType.SUITE, description, attributes);
+            parentItemId = _orangebeard.StartTestItem(null, topLevelSuite);
+            UpdateTree(topLevelSuite, parentItemId);
+            return parentItemId;
+        }
+
         private void UpdateTree(StartTestItem startTestItem, Guid? testItemId)
         {
-            if (_tree == null)
+            if (Tree == null)
             {
-                _tree = new TypeTree(startTestItem.Type, startTestItem.Name, testItemId);
+                Tree = new TypeTree(startTestItem.Type, startTestItem.Name, testItemId);
             }
             else
             {
-                _tree = _tree.Add(startTestItem.Type, startTestItem.Name, testItemId);
+                Tree = Tree.Add(startTestItem.Type, startTestItem.Name, testItemId);
             }
 
             if (startTestItem.Type == TestItemType.TEST)
