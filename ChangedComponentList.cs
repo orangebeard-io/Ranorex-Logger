@@ -1,14 +1,15 @@
 ﻿using Newtonsoft.Json.Linq;
 using Orangebeard.Client.Abstractions.Models;
-using Orangebeard.Client.Entities;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using JArray = Newtonsoft.Json.Linq.JArray;
+using JTokenType = Newtonsoft.Json.Linq.JTokenType;
+using JToken = Newtonsoft.Json.Linq.JToken;
 
 namespace RanorexOrangebeardListener
 {
-    class ChangedComponentsList
+    public class ChangedComponentsList
     {
         internal static ISet<ChangedComponent> Load()
         {
@@ -43,7 +44,7 @@ namespace RanorexOrangebeardListener
         /// For example, [{"componentName":"barber","componentVersion":"2022.1.1.35", "componentTool":"shavingCream"}] will simply result in the pair ("barber","2022.1.1.35").
         /// </summary>
         /// <returns>A set of pairs, where each pair is a combination of a component name and a component version.</returns>
-        private static ISet<ChangedComponent> ParseJson(string json)
+        public static ISet<ChangedComponent> ParseJson(string json)
         {
             JArray jsonArray = JArray.Parse(json);
             var pairs = new HashSet<ChangedComponent>();

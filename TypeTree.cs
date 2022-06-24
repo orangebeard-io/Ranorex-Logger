@@ -5,13 +5,13 @@ using Orangebeard.Client.Entities;
 
 namespace RanorexOrangebeardListener
 {
-    class TypeTree
+    public class TypeTree
     {
         public TestItemType ItemType { get; private set; }
         private readonly string name = "";
         private TypeTree parent = null;
         private Guid? itemId = null;
-        private readonly List<TypeTree> children = new List<TypeTree>();
+        public List<TypeTree> Children { get; private set; } = new List<TypeTree>();
 
         internal TypeTree(TestItemType itemType, string name, Guid? itemId)
         {
@@ -23,7 +23,7 @@ namespace RanorexOrangebeardListener
         internal TypeTree Add(TestItemType type, string name, Guid? itemId)
         {
             TypeTree child = new TypeTree(type, name, itemId);
-            children.Add(child);
+            Children.Add(child);
             child.parent = this;
             return child;
         }
@@ -59,7 +59,7 @@ namespace RanorexOrangebeardListener
             target.Write(new String(' ', indentation));
             target.Write($"{ItemType} {name}");
 
-            children.ForEach(child => child.Print(target, indentation + 2));
+            Children.ForEach(child => child.Print(target, indentation + 2));
         }
     }
 }

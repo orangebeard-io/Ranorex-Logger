@@ -33,21 +33,11 @@ namespace RanorexOrangebeardListener
     // ReSharper disable once UnusedMember.Global
     public class OrangebeardLogger : IReportLogger
     {
-
-        /// <summary>
-        /// A very simple console logger.
-        /// The ultimate purpose is to implement ILogger or use an existing ILogger implementation.
-        /// </summary>
-        class SimpleConsoleLogger
-        {
-            public void LogError(string str) => Console.WriteLine(str);
-        }
-
         private static readonly SimpleConsoleLogger logger = new SimpleConsoleLogger();
 
         private readonly OrangebeardV2Client _orangebeard;
 
-        private Guid testRunUuid;
+        private Guid _testRunUuid;
 
         private readonly OrangebeardConfiguration _config;
         private readonly List<string> _reportedErrorScreenshots = new List<string>();
@@ -57,7 +47,7 @@ namespace RanorexOrangebeardListener
         /// When converting Ranorex items to Orangebeard items, the context is important.
         /// A Ranorex Smart Folder can become an Orangebeard Suite or an Orangebeard Step, depending on where it appears.
         /// </summary>
-        private TypeTree _tree = null;
+        public TypeTree Tree { get; private set; } = null;
 
         /// <summary>
         /// Indicates if the current Ranorex item maps to an Orangebeard Test, or a descendant of an Orangebeard Test.
@@ -70,11 +60,12 @@ namespace RanorexOrangebeardListener
         internal const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
 
         private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{0,2}\\))([^\b%\/\|:\n<>""']*))";
-        private const string TESTSUITE = "testsuite";
-        private const string TESTCONTAINER = "testcontainer";
-        private const string SMARTFOLDER_DATAITERATION = "smartfolder_dataiteration";
-        private const string TESTCASE_DATAITERATION = "testcase_dataiteration";
-        private const string TESTMODULE = "testmodule";
+
+        public const string TESTSUITE = "testsuite";
+        public const string TESTCONTAINER = "testcontainer";
+        public const string SMARTFOLDER_DATAITERATION = "smartfolder_dataiteration";
+        public const string TESTCASE_DATAITERATION = "testcase_dataiteration";
+        public const string TESTMODULE = "testmodule";
 
         public OrangebeardLogger()
         {
@@ -100,30 +91,30 @@ namespace RanorexOrangebeardListener
             }
             else
             {
-                testRunUuid = possibleTestRunUuid.Value;
-                Console.WriteLine($"Started a test run with UUID {testRunUuid}.");
+                _testRunUuid = possibleTestRunUuid.Value;
+                Console.WriteLine($"Started a test run with UUID {_testRunUuid}.");
                 // We added a new type to the enum, TestItemType.TEST_RUN .
                 // Note, however, that when StartTestItem is called, it looks for the parent node in _tree .
                 // A StartTestItem that is a top-level Suite, should NOT have a value for "parent item ID" filled in.
                 // We need to check this in the code that starts a new Test Item.
-                _tree = new TypeTree(TestItemType.TEST_RUN, _config.TestSetName, testRunUuid);
+                Tree = new TypeTree(TestItemType.TEST_RUN, _config.TestSetName, _testRunUuid);
             }
         }
 
         public void End()
         {
             Report.SystemSummary();
-            if (testRunUuid != null)
+            if (_testRunUuid != null)
             {
                 FinishTestRun finishTestRun = new FinishTestRun();
-                while (_tree != null && _tree.GetItemId().Value != testRunUuid)
+                while (Tree != null && Tree.GetItemId().Value != _testRunUuid)
                 {
-                    var finishTestItem = new FinishTestItem(testRunUuid, Status.STOPPED);
-                    _orangebeard.FinishTestItem(_tree.GetItemId().Value, finishTestItem);
-                    _tree = _tree.GetParent();
+                    var finishTestItem = new FinishTestItem(_testRunUuid, Status.STOPPED);
+                    _orangebeard.FinishTestItem(Tree.GetItemId().Value, finishTestItem);
+                    Tree = Tree.GetParent();
                 }
 
-                _orangebeard.FinishTestRun(testRunUuid, finishTestRun);
+                _orangebeard.FinishTestRun(_testRunUuid, finishTestRun);
             }
         }
 
@@ -205,10 +196,10 @@ namespace RanorexOrangebeardListener
             {
                 category = string.Empty;
             }
-            var logLevel = DetermineLogLevel(level.Name);
+            var logLevel = LogLevelHelper.DetermineLogLevel(level.Name);
             string logMessage = $"[{category}]: {message}";
 
-            var possibleItemId = _tree.GetItemId();
+            var possibleItemId = Tree.GetItemId();
             if (possibleItemId == null)
             {
                 logger.LogError("No item ID found for log message. Discarding the following message:\r\n{logMessage}");
@@ -216,7 +207,7 @@ namespace RanorexOrangebeardListener
             }
 
             var itemId = possibleItemId.Value;
-            if (itemId.Equals(testRunUuid))
+            if (itemId.Equals(_testRunUuid))
             {
                 logger.LogError($"Cannot log message at Test Run level. Discarded message:\r\n{logMessage}");
                 return;
@@ -226,16 +217,16 @@ namespace RanorexOrangebeardListener
             {
                 FileInfo fileInfo = new FileInfo(attachmentFileName);
                 Attachment.AttachmentFile file = new Attachment.AttachmentFile(fileInfo);
-                Attachment logAndAttachment = new Attachment(testRunUuid, itemId, logLevel, logMessage, file);
+                Attachment logAndAttachment = new Attachment(_testRunUuid, itemId, logLevel, logMessage, file);
                 _orangebeard.SendAttachment(logAndAttachment);
             }
             else
             {
-                Log log = new Log(testRunUuid, itemId, logLevel, logMessage, LogFormat.PLAIN_TEXT);
+                Log log = new Log(_testRunUuid, itemId, logLevel, logMessage, LogFormat.PLAIN_TEXT);
                 _orangebeard.Log(log);
             }
 
-            if (MeetsMinimumSeverity(logLevel, LogLevel.warn) && metaInfos.Count >= 1)
+            if (LogLevelHelper.MeetsMinimumSeverity(logLevel, LogLevel.warn) && metaInfos.Count >= 1)
             {
                 var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
 
@@ -244,11 +235,9 @@ namespace RanorexOrangebeardListener
                     meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
                 }
 
-                Log metaRq = new Log(testRunUuid, itemId, LogLevel.debug, meta.ToString(), LogFormat.PLAIN_TEXT);
+                Log metaRq = new Log(_testRunUuid, itemId, LogLevel.debug, meta.ToString(), LogFormat.PLAIN_TEXT);
                 _orangebeard.Log(metaRq);
             }
-
-
         }
 
         /// <summary>
@@ -259,7 +248,7 @@ namespace RanorexOrangebeardListener
         /// </summary>
         /// <param name="info">Information obtained from Ranorex that describes the log item.</param>
         /// <returns><code>true</code> if a Start Test Item or Finish Test Item were found; <code>false</code> otherwise.</returns>
-        private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
+        public bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
             if (!info.ContainsKey("activity")) return false;
 
@@ -267,10 +256,20 @@ namespace RanorexOrangebeardListener
             {
                 var startTestItem = DetermineStartTestItem(info["activity"], info);
                 Guid? parentItemId = null;
-                if (_tree != null && _tree.ItemType != TestItemType.TEST_RUN)
+                if (Tree != null && Tree.ItemType != TestItemType.TEST_RUN)
                 {
-                    parentItemId = _tree?.GetItemId();
+                    parentItemId = Tree?.GetItemId();
+                } 
+                else
+                {
+                    // There is no parent item. If the item we want to create is a Suite, then that's fine: it'll be the top Suite.
+                    // But if it isn't... then we should create a suite FOR it.
+                    if (startTestItem.Type != TestItemType.SUITE)
+                    {
+                        parentItemId = CreateAndStartTopLevelSuite();
+                    }
                 }
+
                 var testItemId = _orangebeard.StartTestItem(parentItemId, startTestItem);
                 UpdateTree(startTestItem, testItemId);
                 return true;
@@ -278,7 +277,22 @@ namespace RanorexOrangebeardListener
             else
             {
                 var finishTestItem = DetermineFinishTestItem(info["result"]);
-                var itemId = _tree?.GetItemId();
+
+                // It is possible that we get a "result" when no test item has been started.
+                // This happens when the Orangebeard Logger is started as part of a test suite; then the suite is already started, then reports that something is finished.
+                // So, BEFORE building a FinishTestItem, we check if there is a top level suite; and if there isn't, we create one.
+                if (Tree == null || Tree.GetParent() == null)
+                {
+                    Guid suiteId = CreateAndStartTopLevelSuite().Value;
+
+                    // If we reach here, we have to finish a test item, for which the Orangebeard Logger has not received a start event.
+                    // So we (retroactively) create a start test item.
+                    StartTestItem startTestItem = DetermineStartTestItem(info["activity"], info);
+                    var testItemId = _orangebeard.StartTestItem(suiteId, startTestItem);
+                    UpdateTree(startTestItem, testItemId);
+                }
+
+                var itemId = Tree?.GetItemId();
                 if (itemId == null)
                 {
                     logger.LogError($"Cannot find the Item ID for a FinishTestItem request! The FinishTestItem request is:\r\n{finishTestItem}");
@@ -286,25 +300,38 @@ namespace RanorexOrangebeardListener
                 }
 
                 _orangebeard.FinishTestItem(itemId.Value, finishTestItem);
-                if (_tree.ItemType == TestItemType.TEST)
+                if (Tree.ItemType == TestItemType.TEST)
                 {
                     _isTestCaseOrDescendant = false;
                 }
-                _tree = _tree.GetParent();
+                Tree = Tree.GetParent();
                 return true;
             }
 
         }
 
+        private Guid? CreateAndStartTopLevelSuite()
+        {
+            Guid? parentItemId;
+            string name = ((TestSuite)TestSuite.Current).Children[0].Name;
+            string description = ((TestSuite)TestSuite.Current).Children[0].Comment;
+            var attributes = new HashSet<ItemAttribute> { new ItemAttribute(value: "Suite") };
+
+            StartTestItem topLevelSuite = new StartTestItem(_testRunUuid, name, TestItemType.SUITE, description, attributes);
+            parentItemId = _orangebeard.StartTestItem(null, topLevelSuite);
+            UpdateTree(topLevelSuite, parentItemId);
+            return parentItemId;
+        }
+
         private void UpdateTree(StartTestItem startTestItem, Guid? testItemId)
         {
-            if (_tree == null)
+            if (Tree == null)
             {
-                _tree = new TypeTree(startTestItem.Type, startTestItem.Name, testItemId);
+                Tree = new TypeTree(startTestItem.Type, startTestItem.Name, testItemId);
             }
             else
             {
-                _tree = _tree.Add(startTestItem.Type, startTestItem.Name, testItemId);
+                Tree = Tree.Add(startTestItem.Type, startTestItem.Name, testItemId);
             }
 
             if (startTestItem.Type == TestItemType.TEST)
@@ -390,7 +417,7 @@ namespace RanorexOrangebeardListener
                     break;
             }
 
-            return new StartTestItem(testRunUuid, name + namePostfix, type, description, attributes);
+            return new StartTestItem(_testRunUuid, name + namePostfix, type, description, attributes);
         }
 
         private FinishTestItem DetermineFinishTestItem(string result)
@@ -412,7 +439,7 @@ namespace RanorexOrangebeardListener
             }
 
             // Note that the FinishTestItem constructor automatically fills in its end time as the current time.
-            return new FinishTestItem(testRunUuid, status);
+            return new FinishTestItem(_testRunUuid, status);
         }
 
         private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
@@ -492,52 +519,8 @@ namespace RanorexOrangebeardListener
                 testRunDescription = newDescription.Value;
             }
             var update = new UpdateTestRun(testRunDescription, attrSet);
-            _orangebeard.UpdateTestRun(testRunUuid, update);
+            _orangebeard.UpdateTestRun(_testRunUuid, update);
         }
 
-        private static LogLevel DetermineLogLevel(string levelStr)
-        {
-            LogLevel level;
-
-            // Case-insensitive test to see if the given "levelStr" exists in our LogLevel enum.
-            string[] logLevelNames = Enum.GetNames(typeof(LogLevel));
-            bool levelStrContained = logLevelNames.Any(logLevelName => string.Compare(logLevelName, levelStr, StringComparison.InvariantCultureIgnoreCase) == 0);
-
-
-            if (levelStrContained)
-            {
-                level = (LogLevel)Enum.Parse(typeof(LogLevel), levelStr.ToLower());
-            }
-            else if (levelStr.Equals("Success", StringComparison.InvariantCultureIgnoreCase))
-            {
-                level = LogLevel.info;
-            }
-            else if (levelStr.Equals("Failure", StringComparison.InvariantCultureIgnoreCase))
-            {
-                level = LogLevel.error;
-            }
-            else if (levelStr.Equals("Warn", StringComparison.InvariantCultureIgnoreCase))
-            {
-                level = LogLevel.warn;
-            }
-            else
-            {
-                logger.LogError($"Unknown log level: {levelStr}");
-                level = LogLevel.unknown;
-            }
-            return level;
-        }
-
-        /// Determine if a LogLevel has at least a minimum severity.
-        /// For example, <code>LogLevel.Error</code> is more severe than <code>LogLevel.Warning</code>; so <code>MeetsMinimumSeverity(Error, Warning)</code> is <code>true</code>.
-        /// Similarly, <code>LogLevel.Warning</code> is at severity level <code>Warning</code>; so <code>MeetsMinimumSeverity(Warning, Warning)</code> is also <code>true</code>.
-        /// But <code>LogLevel.Info</code> is less severe than <code>LogLevel.Warning</code>, so <code>MeetsMinimumSeverity(Warning, Info)</code> is <code>false</code>.
-        /// <param name="level">The LogLevel whose severity must be checked.</param>
-        /// <param name="threshold">The severity level to check against.</param>
-        /// <returns>The boolean value <code>true</code> if and only if the given log level has at least the same level of severity as the threshold value.</returns>
-        private static bool MeetsMinimumSeverity(LogLevel level, LogLevel threshold)
-        {
-            return ((int)level) >= (int)threshold;
-        }
     }
 }
