@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Orangebeard.Client" Version="2.0.0.4" />
+    <PackageReference Include="Orangebeard.Client" Version="2.0.0.5" />
   </ItemGroup>
 
 </Project>
