@@ -243,6 +243,9 @@ namespace RanorexOrangebeardListener
         private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData, string mimeType, string attachmentFileName,
             IDictionary<string, string> metaInfos)
         {
+            //Don't send data if no test has been started yet.
+            if (_currentReporter == null) return;
+
             if (category == null)
             {
                 category = string.Empty;
@@ -258,36 +261,31 @@ namespace RanorexOrangebeardListener
                 logRq.Attach = new LogItemAttach(mimeType, attachmentData) { Name = attachmentFileName };
             }
 
+            _currentReporter.Log(logRq);
 
-            var logLevel = DetermineLogLevel(level.Name);
-            CreateLogItemRequest metaRq = null;
-            if (MeetsMinimumSeverity(logLevel, LogLevel.Warning) && metaInfos.Count >= 1)
+            if (MeetsMinimumSeverity(DetermineLogLevel(level.Name), LogLevel.Warning) && metaInfos.Count >= 1)
             {
-                var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
+                LogMetaInfo(metaInfos);
+            }
+        }
 
-                foreach (var key in metaInfos.Keys)
-                {
-                    meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
-                }
+        private void LogMetaInfo(IDictionary<string, string> metaInfos)
+        {
+            var meta = new StringBuilder().Append("Meta Info:").Append("\r\n");
 
-                metaRq = new CreateLogItemRequest
-                {
-                    Time = DateTime.UtcNow,
-                    Level = LogLevel.Debug,
-                    Text = meta.ToString()
-                };
+            foreach (var key in metaInfos.Keys)
+            {
+                meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
             }
 
-            if (_currentReporter == null)
+            var metaRq = new CreateLogItemRequest
             {
-                _launchReporter.Log(logRq);
-                if (metaRq != null) _launchReporter.Log(metaRq);
-            }
-            else
-            {
-                _currentReporter.Log(logRq);
-                if (metaRq != null) _currentReporter.Log(metaRq);
-            }
+                Time = DateTime.UtcNow,
+                Level = LogLevel.Debug,
+                Text = meta.ToString()
+            };
+
+            _currentReporter.Log(metaRq);
         }
 
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
@@ -407,7 +405,6 @@ namespace RanorexOrangebeardListener
                     {
                         type = TestItemType.Test;
                         attributes.Add(new ItemAttribute { Value = "Test Case" });
-                        _isTestCaseOrDescendant = true;
                     }
 
                     description = DescriptionForCurrentContainer();
@@ -423,7 +420,6 @@ namespace RanorexOrangebeardListener
 
                 case TESTCASE_DATAITERATION:
                     type = TestItemType.Test;
-                    _isTestCaseOrDescendant = true;
                     name = info["testcontainername"];
                     namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
                     attributes.Add(new ItemAttribute { Value = "Test Case" });
