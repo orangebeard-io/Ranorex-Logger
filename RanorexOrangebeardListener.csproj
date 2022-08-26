@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
 	<TargetFramework>net462</TargetFramework>
@@ -10,10 +10,10 @@
   <ItemGroup>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
+      <HintPath>libs\9.3.3\Ranorex.Core.dll</HintPath>
     </Reference>
     <Reference Include="Ranorex.Libs.Util">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
+      <HintPath>libs\9.3.3\Ranorex.Libs.Util.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Orangebeard.Client" Version="2.0.0.5" />
+    <PackageReference Include="Orangebeard.Client" Version="2.1.1" />
   </ItemGroup>
 
 </Project>

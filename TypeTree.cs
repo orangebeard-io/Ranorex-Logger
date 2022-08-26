@@ -1,29 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Orangebeard.Client.Entities;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Orangebeard.Client.Abstractions.Models;
 
 namespace RanorexOrangebeardListener
 {
-    public class TypeTree
+    class TypeTree
     {
         public TestItemType ItemType { get; private set; }
         private readonly string name = "";
         private TypeTree parent = null;
-        private Guid? itemId = null;
-        public List<TypeTree> Children { get; private set; } = new List<TypeTree>();
+        private readonly List<TypeTree> children = new List<TypeTree>();
 
-        internal TypeTree(TestItemType itemType, string name, Guid? itemId)
+        internal TypeTree(TestItemType itemType, string name)
         {
             this.ItemType = itemType;
             this.name = name;
-            this.itemId = itemId;
         }
 
-        internal TypeTree Add(TestItemType type, string name, Guid? itemId)
+        internal TypeTree Add(TestItemType type, string name)
         {
-            TypeTree child = new TypeTree(type, name, itemId);
-            Children.Add(child);
+            TypeTree child = new TypeTree(type, name);
+            children.Add(child);
             child.parent = this;
             return child;
         }
@@ -36,11 +37,6 @@ namespace RanorexOrangebeardListener
         internal TypeTree GetRoot()
         {
             return (parent == null) ? this : parent.GetRoot();
-        }
-
-        internal Guid? GetItemId()
-        {
-            return itemId;
         }
 
         internal void Print(string folder)
@@ -59,7 +55,7 @@ namespace RanorexOrangebeardListener
             target.Write(new String(' ', indentation));
             target.Write($"{ItemType} {name}");
 
-            Children.ForEach(child => child.Print(target, indentation + 2));
+            children.ForEach(child => child.Print(target, indentation + 2));
         }
     }
 }
