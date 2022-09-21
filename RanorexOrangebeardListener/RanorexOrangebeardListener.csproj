@@ -10,10 +10,10 @@
   <ItemGroup>
     <Reference Include="PresentationFramework" />
     <Reference Include="Ranorex.Core">
-      <HintPath>libs\9.3.3\Ranorex.Core.dll</HintPath>
+      <HintPath>bin\Debug\net462\Ranorex.Core.dll</HintPath>
     </Reference>
     <Reference Include="Ranorex.Libs.Util">
-      <HintPath>libs\9.3.3\Ranorex.Libs.Util.dll</HintPath>
+      <HintPath>bin\Debug\net462\Ranorex.Libs.Util.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
