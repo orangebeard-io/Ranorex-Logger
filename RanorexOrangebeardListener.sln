@@ -3,11 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30517.126
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListener", "RanorexOrangebeardListener\RanorexOrangebeardListener.csproj", "{43057EC9-D9ED-428F-B0B8-E21B92B337CE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListener", "RanorexOrangebeardListener\RanorexOrangebeardListener.csproj", "{1BEF2749-5E5B-4ADF-BB97-4348582E8261}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListenerTests", "RanorexOrangebeardListenerTests\RanorexOrangebeardListenerTests.csproj", "{0311C7DB-99A7-48AA-A391-8615ABDEC873}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListenerTests1", "RanorexOrangebeardListenerTests1\RanorexOrangebeardListenerTests1.csproj", "{A9DC31E0-0BF7-461E-BAAD-6BBDD83B9FDE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListenerTests", "RanorexOrangebeardListenerTests1\RanorexOrangebeardListenerTests.csproj", "{998103EC-CA7B-422C-8041-E5D18E439404}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,18 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{43057EC9-D9ED-428F-B0B8-E21B92B337CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{43057EC9-D9ED-428F-B0B8-E21B92B337CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{43057EC9-D9ED-428F-B0B8-E21B92B337CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{43057EC9-D9ED-428F-B0B8-E21B92B337CE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0311C7DB-99A7-48AA-A391-8615ABDEC873}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0311C7DB-99A7-48AA-A391-8615ABDEC873}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0311C7DB-99A7-48AA-A391-8615ABDEC873}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0311C7DB-99A7-48AA-A391-8615ABDEC873}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A9DC31E0-0BF7-461E-BAAD-6BBDD83B9FDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A9DC31E0-0BF7-461E-BAAD-6BBDD83B9FDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A9DC31E0-0BF7-461E-BAAD-6BBDD83B9FDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A9DC31E0-0BF7-461E-BAAD-6BBDD83B9FDE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Release|Any CPU.Build.0 = Release|Any CPU
+		{998103EC-CA7B-422C-8041-E5D18E439404}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{998103EC-CA7B-422C-8041-E5D18E439404}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{998103EC-CA7B-422C-8041-E5D18E439404}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{998103EC-CA7B-422C-8041-E5D18E439404}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
