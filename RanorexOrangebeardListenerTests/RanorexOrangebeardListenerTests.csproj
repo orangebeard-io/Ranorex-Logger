@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Ranorex-Logger-v2\RanorexOrangebeardListener.csproj" />
+    <ProjectReference Include="..\RanorexOrangebeardListener\RanorexOrangebeardListener.csproj" />
   </ItemGroup>
 
   <ItemGroup>
