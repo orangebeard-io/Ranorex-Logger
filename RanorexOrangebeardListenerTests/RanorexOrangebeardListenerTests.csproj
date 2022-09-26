@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>.NETFramework,Version=v4.6.2</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.3" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.3" />
+    <PackageReference Include="coverlet.collector" Version="3.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Orangebeard.Client" Version="2.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RanorexOrangebeardListener\RanorexOrangebeardListener.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Ranorex.Core">
+      <HintPath>..\RanorexOrangebeardListener\bin\Debug\net462\Ranorex.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Ranorex.Libs.Util">
+      <HintPath>..\RanorexOrangebeardListener\bin\Debug\net462\Ranorex.Libs.Util.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
