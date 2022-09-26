@@ -20,17 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Ranorex.Common.Net35">
-      <HintPath>..\Ranorex-Logger-v2\bin\Debug\net462\Ranorex.Common.Net35.dll</HintPath>
-    </Reference>
     <Reference Include="Ranorex.Core">
-      <HintPath>..\Ranorex-Logger-v2\bin\Debug\net462\Ranorex.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="Ranorex.Libs">
-      <HintPath>..\Ranorex-Logger-v2\bin\Debug\net462\Ranorex.Libs.dll</HintPath>
+      <HintPath>..\RanorexOrangebeardListener\bin\Debug\net462\Ranorex.Core.dll</HintPath>
     </Reference>
     <Reference Include="Ranorex.Libs.Util">
-      <HintPath>..\Ranorex-Logger-v2\bin\Debug\net462\Ranorex.Libs.Util.dll</HintPath>
+      <HintPath>..\RanorexOrangebeardListener\bin\Debug\net462\Ranorex.Libs.Util.dll</HintPath>
     </Reference>
   </ItemGroup>
 
