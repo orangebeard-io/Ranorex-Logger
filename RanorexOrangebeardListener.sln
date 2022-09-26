@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.30517.126
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListener", "RanorexOrangebeardListener\RanorexOrangebeardListener.csproj", "{1BEF2749-5E5B-4ADF-BB97-4348582E8261}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RanorexOrangebeardListenerTests", "RanorexOrangebeardListenerTests\RanorexOrangebeardListenerTests.csproj", "{E79DF722-A045-4FBB-B125-0B1832872CA5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1BEF2749-5E5B-4ADF-BB97-4348582E8261}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E79DF722-A045-4FBB-B125-0B1832872CA5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E79DF722-A045-4FBB-B125-0B1832872CA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E79DF722-A045-4FBB-B125-0B1832872CA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E79DF722-A045-4FBB-B125-0B1832872CA5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
