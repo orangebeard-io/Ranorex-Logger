@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2020 Orangebeard.io (https://www.orangebeard.io)
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -254,7 +254,8 @@ namespace RanorexOrangebeardListener
             {
                 Time = DateTime.UtcNow,
                 Level = DetermineLogLevel(level.Name),
-                Text = "[" + category + "]: " + message
+                Text = "[" + category + "]: " + message,
+                Format = LogFormat.MARKDOWN
             };
             if (attachmentData != null && attachmentFileName != null)
             {
@@ -282,7 +283,8 @@ namespace RanorexOrangebeardListener
             {
                 Time = DateTime.UtcNow,
                 Level = LogLevel.Debug,
-                Text = meta.ToString()
+                Text = meta.ToString(),
+                Format = LogFormat.PLAIN_TEXT
             };
 
             _currentReporter.Log(metaRq);
