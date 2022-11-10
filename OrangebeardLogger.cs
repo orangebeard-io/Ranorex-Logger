@@ -17,6 +17,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Web;
 using Newtonsoft.Json.Linq;
 using Orangebeard.Client;
 using Orangebeard.Client.Abstractions.Models;
@@ -538,7 +539,19 @@ namespace RanorexOrangebeardListener
         private static string DescriptionForCurrentContainer()
         {
             var entry = (TestSuiteEntry) TestSuite.CurrentTestContainer;
-            return entry.Comment;
+            return StripHtml(entry.Comment);
+        }
+
+        private static string StripHtml(string str)
+        { 
+            string cleanStr;
+            cleanStr = str.Contains("<") ? Regex.Replace(ReplaceHtmlParagraphsAndLinebreaks(str), "<[a-zA-Z/].*?>", String.Empty) : str;
+            return Regex.IsMatch(cleanStr, "&[a-z]+;") ? HttpUtility.HtmlDecode(cleanStr) : cleanStr;
+        }
+
+        private static string ReplaceHtmlParagraphsAndLinebreaks(string str)
+        {
+            return Regex.Replace(str, @"<(br|BR|\/[pP]).*?>", "\r\n");
         }
 
         private void UpdateTestrunWithSystemInfo(string message)
