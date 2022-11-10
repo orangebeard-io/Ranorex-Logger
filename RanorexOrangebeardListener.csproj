@@ -3,7 +3,7 @@
   <PropertyGroup>
 	<TargetFramework>net462</TargetFramework>
 	<!-- TargetFramework>netcoreapp3.1</TargetFramework -->
-    <Version>1.1.4.0</Version>
+    <Version>1.1.5.0</Version>
     <AssemblyVersion>1.1.3.0</AssemblyVersion>
   </PropertyGroup>
 
@@ -15,6 +15,7 @@
     <Reference Include="Ranorex.Libs.Util">
       <HintPath>libs\9.3.3\Ranorex.Libs.Util.dll</HintPath>
     </Reference>
+    <Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
