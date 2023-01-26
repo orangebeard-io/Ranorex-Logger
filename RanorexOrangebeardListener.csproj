@@ -1,9 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
 	  <TargetFrameworks>net462;net48</TargetFrameworks>
-    <Version>1.1.6.0</Version>
-    <AssemblyVersion>1.1.6.0</AssemblyVersion>
+    <Version>1.1.7.0</Version>
+    <AssemblyVersion>1.1.7.0</AssemblyVersion>
   </PropertyGroup>
 
 	  
