@@ -25,6 +25,7 @@
 ## Build
  * Clone this repository
  * Open in a .Net IDE
+ * Reference Ranorex.Core.dll and Ranorex.Libs.Util.dll from your Ranorex Installation(s) - Ranorex 9.x uses net462, Ranorex 10.x uses net48. - Change the target framework(s) to what you need. Currently, the solution targets net462 and net48, so it needs Ranorex 9.x dll's, or separate references for v9 and v10.'
  * Reference the Orangebeard.Client DLL
  * Build the Ranorex Logger DLL
 
