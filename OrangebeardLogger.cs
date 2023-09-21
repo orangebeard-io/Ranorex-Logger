@@ -55,6 +55,7 @@ namespace RanorexOrangebeardListener
         private bool _isTestCaseOrDescendant = false;
 
         private IList<ChangedComponent> _changedComponents = new List<ChangedComponent>();
+        private IList<ItemAttribute> _testRunAttributes;
 
         private const string CHANGED_COMPONENTS_PATH = @".\changedComponents.json";
         private const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
@@ -147,10 +148,14 @@ namespace RanorexOrangebeardListener
             if(_launchReporter == null)
             {
                 _launchReporter = new LaunchReporter(_orangebeard, null, null, new ExtensionManager());
+                _testRunAttributes = _config.Attributes == null ? new List<ItemAttribute>() : _config.Attributes.ToList();
+
                 _launchReporter.Start(new StartLaunchRequest
                 {
                     StartTime = DateTime.UtcNow,
                     Name = _config.TestSetName,
+                    Description = _config.Description ?? "",
+                    Attributes = _testRunAttributes,
                     ChangedComponents = _changedComponents
                 });
             }
@@ -568,7 +573,7 @@ namespace RanorexOrangebeardListener
                       !attr[0].Contains("Ranorex version") && 
                       !attr[0].Contains("Memory") && 
                       !attr[0].Contains("Runtime version") 
-                select new ItemAttribute {Key = attr[0], Value = attr[1]}).ToList();
+                select new ItemAttribute {Key = attr[0], Value = attr[1]}).Concat(_testRunAttributes).ToList();
 
             _launchReporter.Update(new UpdateLaunchRequest { Attributes = attrs });
         }
