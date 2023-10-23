@@ -41,11 +41,4 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Orangebeard.Client" Version="2.1.5" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Reference Update="System.Core">
-      <SpecificVersion>True</SpecificVersion>
-    </Reference>
-  </ItemGroup>
-
 </Project>
