@@ -13,8 +13,7 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 	
-    
-  <ItemGroup Condition="'$(TargetFramework)' == 'net462'" >
+  <ItemGroup Condition="'$(TargetFramework)' == 'net462'">
 	  <Reference Include="Ranorex.Core">
 		  <HintPath>..\ranorexAssemblies\9\Ranorex.Core.dll</HintPath>
 	  </Reference>
@@ -23,7 +22,7 @@
 	  </Reference>
   </ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net48'" >
+	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
 		<Reference Include="Ranorex.Core">
 			<HintPath>..\ranorexAssemblies\10\Ranorex.Core.dll</HintPath>
 		</Reference>
@@ -39,13 +38,6 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Orangebeard.Client" Version="2.1.2" />
+    <PackageReference Include="Orangebeard.Client" Version="2.1.5" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Reference Update="System.Core">
-      <SpecificVersion>True</SpecificVersion>
-    </Reference>
-  </ItemGroup>
-
 </Project>

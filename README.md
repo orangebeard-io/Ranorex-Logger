@@ -39,6 +39,9 @@
     Environment.SetEnvironmentVariable("orangebeard.accessToken", "api-token-for-orangebeard");
     Environment.SetEnvironmentVariable("orangebeard.project", "projectname");
     Environment.SetEnvironmentVariable("orangebeard.testrun", "Test Run name");
+    Environment.SetEnvironmentVariable("orangebeard.description", @"test run description"); //OPTIONAL
+    Environment.SetEnvironmentVariable("orangebeard.attributes", @"key:value;single tag"); //OPTIONAL
+	Environment.SetEnvironmentVariable("orangebeard.ref.url", @"https://my-ci-server.net/PRJ/1234"); //OPTIONAL
     Environment.SetEnvironmentVariable("orangebeard.fileupload.patterns", @".*\.txt;.*\.bat"); //OPTIONAL
 
     OrangebeardLogger orangebeard = new OrangebeardLogger();
