@@ -1,19 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	<TargetFramework>net462</TargetFramework>
-	<!-- TargetFramework>netcoreapp3.1</TargetFramework -->
-    <Version>1.1.5.0</Version>
-    <AssemblyVersion>1.1.3.0</AssemblyVersion>
+	  <TargetFrameworks>net462;net48</TargetFrameworks>
+    <Version>1.1.7.0</Version>
+    <AssemblyVersion>1.1.7.0</AssemblyVersion>
   </PropertyGroup>
 
+	  
   <ItemGroup>
     <Reference Include="PresentationFramework" />    
 	<Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 	
-    
   <ItemGroup Condition="'$(TargetFramework)' == 'net462'">
 	  <Reference Include="Ranorex.Core">
 		  <HintPath>..\ranorexAssemblies\9\Ranorex.Core.dll</HintPath>
