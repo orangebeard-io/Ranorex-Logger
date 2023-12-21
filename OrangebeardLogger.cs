@@ -18,27 +18,30 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
-using Newtonsoft.Json.Linq;
-using Orangebeard.Client;
-using Orangebeard.Client.Abstractions.Models;
-using Orangebeard.Client.Abstractions.Requests;
-using Orangebeard.Client.OrangebeardProperties;
-using Orangebeard.Shared.Extensibility;
-using Orangebeard.Shared.Reporter;
+using Orangebeard.Client.V3;
+using Orangebeard.Client.V3.OrangebeardConfig;
 using Ranorex;
 using Ranorex.Core;
 using Ranorex.Core.Reporting;
 using Ranorex.Core.Testing;
 using DateTime = System.DateTime;
+using Attribute = Orangebeard.Client.V3.Entity.Attribute;
+using Orangebeard.Client.V3.Entity.TestRun;
+using RanorexOrangebeardListener.RunContext;
+using Orangebeard.Client.V3.MimeTypes;
+using Orangebeard.Client.V3.Entity.Log;
+using Orangebeard.Client.V3.Entity;
+using Orangebeard.Client.V3.Entity.Attachment;
+using Orangebeard.Client.V3.Entity.Suite;
+using Orangebeard.Client.V3.Entity.Test;
+using Orangebeard.Client.V3.Entity.Step;
 
 namespace RanorexOrangebeardListener
 {
     // ReSharper disable once UnusedMember.Global
     public class OrangebeardLogger : IReportLogger
     {
-        private readonly OrangebeardClient _orangebeard;
-        private ITestReporter _currentReporter;
-        private LaunchReporter _launchReporter;
+        private readonly OrangebeardAsyncV3Client _orangebeard;
         private readonly OrangebeardConfiguration _config;
         private readonly List<string> _reportedErrorScreenshots = new List<string>();
 
@@ -54,8 +57,7 @@ namespace RanorexOrangebeardListener
         /// </summary>
         private bool _isTestCaseOrDescendant = false;
 
-        private IList<ChangedComponent> _changedComponents = new List<ChangedComponent>();
-        private IList<ItemAttribute> _testRunAttributes;
+        private ISet<Attribute> _testRunAttributes;
 
         private const string CHANGED_COMPONENTS_PATH = @".\changedComponents.json";
         private const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
@@ -74,108 +76,33 @@ namespace RanorexOrangebeardListener
                     "Ranorex Logger/" +
                     typeof(OrangebeardLogger).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion
                     );
-            _orangebeard = new OrangebeardClient(_config);
-
-            LoadChangedComponentsList();
-        }
-
-        private void LoadChangedComponentsList()
-        {
-            string changedComponentsJson = Environment.GetEnvironmentVariable(CHANGED_COMPONENTS_VARIABLE);
-            if (string.IsNullOrEmpty(changedComponentsJson))
-            {
-                if (File.Exists(CHANGED_COMPONENTS_PATH))
-                {
-                    changedComponentsJson = File.ReadAllText(CHANGED_COMPONENTS_PATH);
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(changedComponentsJson))
-            {
-                _changedComponents = new List<ChangedComponent>();
-            }
-            else
-            {
-                _changedComponents = ParseJson(changedComponentsJson);
-            }
-        }
-
-        /// <summary>
-        /// Parse a JSON array to a set of (componentName, componentVersion) pairs.
-        /// For example, suppose you have the JSON array [{"componentName":"barber","componentVersion":"2022.1.1.35"},{"componentName":"shaver","componentVersion":"2019.2.1.24"}].
-        /// This will result in a set of two pairs: [("barber","2022.1.1.35"),("shaver","2019.2.1.24")].
-        /// Elements in the JSON array <b>must</b> contain a pair that starts with "componentName" and a pair that starts with "componentVersion". However, the value for "componentVersion" is allowed to be null.
-        /// So [{"componentName":"barber","componentVersion":null}] is legal; the version is allowed to be null.
-        /// But [{"componentName":"barber"}] is illegal; there should be a "componentVersion".
-        /// Illegal elements will be ignored.
-        /// It is allowed to add more elements in an element than componentVersion and componentName; those extra elements will be ignored, but may be processed in the future.
-        /// For example, [{"componentName":"barber","componentVersion":"2022.1.1.35", "componentTool":"shavingCream"}] will simply result in the pair ("barber","2022.1.1.35").
-        /// </summary>
-        /// <returns>A list of pairs, where each pair is a combination of a component name and a component version.</returns>
-        public static IList<ChangedComponent> ParseJson(string json)
-        {
-            JArray jsonArray = JArray.Parse(json);
-            var pairs = new HashSet<ChangedComponent>();
-
-            foreach (JToken member in jsonArray)
-            {
-                JToken jTokenName = member["componentName"];
-                JToken jTokenVersion = member["componentVersion"];
-
-                if (jTokenName != null && jTokenName.Type == JTokenType.String && jTokenVersion!= null)
-                {
-                    string name = jTokenName.Value<string>();
-
-                    if (jTokenVersion.Type == JTokenType.String)
-                    {
-                        string version = jTokenVersion.Value<string>();
-                        pairs.Add(new ChangedComponent(name, version));
-                    }
-                    else if (jTokenVersion.Type == JTokenType.Null)
-                    {
-                        pairs.Add(new ChangedComponent(name, null));
-                    }
-                }
-            }
-
-            return pairs.ToList<ChangedComponent>();
-        }
+            _orangebeard = new OrangebeardAsyncV3Client(_config);            
+        }       
 
         public bool PreFilterMessages => false;
 
         public void Start()
         {
-            if(_launchReporter == null)
+            if(_orangebeard.TestRunContext() == null)
             {
-                _launchReporter = new LaunchReporter(_orangebeard, null, null, new ExtensionManager());
-                _testRunAttributes = _config.Attributes == null ? new List<ItemAttribute>() : _config.Attributes.ToList();
-
-                _launchReporter.Start(new StartLaunchRequest
-                {
-                    StartTime = DateTime.UtcNow,
-                    Name = _config.TestSetName,
-                    Description = _config.Description ?? "",
-                    Attributes = _testRunAttributes,
-                    ChangedComponents = _changedComponents
-                });
+                _testRunAttributes = _config.Attributes ?? new HashSet<Attribute>();
+                Guid testRunGuid = _orangebeard.StartTestRun(
+                    new StartTestRun()
+                    {
+                        StartTime = DateTime.UtcNow,
+                        TestSetName = _config.TestSetName,
+                        Description = _config.Description ?? "",
+                        Attributes = _testRunAttributes,
+                    }
+                );
             }
         }
 
         public void End()
         {
             Report.SystemSummary();
-            while (_currentReporter != null)
-            {
-                _currentReporter.Finish(new FinishTestItemRequest
-                {
-                    Status = Status.Interrupted,
-                    EndTime = DateTime.UtcNow
-                });
-                _currentReporter = _currentReporter.ParentTestReporter ?? null;
-            }
+            _orangebeard.FinishTestRun(_orangebeard.TestRunContext().TestRun, new FinishTestRun());
 
-            _launchReporter.Finish(new FinishLaunchRequest { EndTime = DateTime.UtcNow });
-            _launchReporter.Sync();
         }
 
         public void LogData(ReportLevel level, string category, string message, object data,
@@ -232,7 +159,7 @@ namespace RanorexOrangebeardListener
                         {
                             attachmentData = File.ReadAllBytes(filePath);
                             attachmentFileName = Path.GetFileName(filePath);
-                            attachmentMimeType = Orangebeard.Shared.MimeTypes.MimeTypeMap.GetMimeType(Path.GetExtension(filePath));
+                            attachmentMimeType = MimeTypeMap.GetMimeType(Path.GetExtension(filePath));
                             return; 
                         } catch (Exception e)
                         {
@@ -250,27 +177,48 @@ namespace RanorexOrangebeardListener
             IDictionary<string, string> metaInfos)
         {
             //Don't send data if no test has been started yet.
-            if (_currentReporter == null) return;
+            if (_orangebeard.TestRunContext().ActiveTest() == null) return;
 
             if (category == null)
             {
                 category = string.Empty;
             }
-            var logRq = new CreateLogItemRequest
+            var logItem = new Log
             {
-                Time = DateTime.UtcNow,
-                Level = DetermineLogLevel(level.Name),
-                Text = "[" + category + "]: " + message,
-                Format = LogFormat.MARKDOWN
+                TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                StepUUID = _orangebeard.TestRunContext().ActiveStep(),
+                LogTime = DateTime.UtcNow,
+                LogLevel = DetermineLogLevel(level.Name),
+                Message = "[" + category + "]: " + message,
+                LogFormat = LogFormat.MARKDOWN
             };
+
+            var logId = _orangebeard.Log(logItem);
+
             if (attachmentData != null && attachmentFileName != null)
             {
-                logRq.Attach = new LogItemAttach(mimeType, attachmentData) { Name = attachmentFileName };
+                var attachment = new Attachment
+                {
+                    File = new AttachmentFile
+                    {
+                        Name = attachmentFileName,
+                        Content = attachmentData,
+                        ContentType = mimeType,
+                    },
+                    MetaData = new AttachmentMetaData
+                    {
+                        TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                        TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                        StepUUID = _orangebeard.TestRunContext().ActiveStep(),
+                        LogUUID = logId,
+                        AttachmentTime = DateTime.UtcNow
+                    }
+                };
+                _orangebeard.SendAttachment(attachment);
             }
 
-            _currentReporter.Log(logRq);
-
-            if (MeetsMinimumSeverity(DetermineLogLevel(level.Name), LogLevel.Warning) && metaInfos.Count >= 1)
+            if (MeetsMinimumSeverity(DetermineLogLevel(level.Name), LogLevel.WARN) && metaInfos.Count >= 1)
             {
                 LogMetaInfo(metaInfos);
             }
@@ -283,17 +231,20 @@ namespace RanorexOrangebeardListener
             foreach (var key in metaInfos.Keys)
             {
                 meta.Append("\t").Append(key).Append(" => ").Append(metaInfos[key]).Append("\r\n");
-            }
+            }         
 
-            var metaRq = new CreateLogItemRequest
+            var metaLogItem = new Log
             {
-                Time = DateTime.UtcNow,
-                Level = LogLevel.Debug,
-                Text = meta.ToString(),
-                Format = LogFormat.PLAIN_TEXT
+                TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                StepUUID = _orangebeard.TestRunContext().ActiveStep(),
+                LogTime = DateTime.UtcNow,
+                LogLevel = LogLevel.DEBUG,
+                Message = meta.ToString(),
+                LogFormat = LogFormat.PLAIN_TEXT
             };
 
-            _currentReporter.Log(metaRq);
+            _orangebeard.Log(metaLogItem);
         }
 
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
@@ -306,99 +257,154 @@ namespace RanorexOrangebeardListener
             //If there is no result key and we have not autopopulated suite and item, we need to start an item
             if (!info.ContainsKey("result") && !forcedSynchronization)
             {
-                StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
-                UpdateTree(rq);
-
-                _currentReporter = _currentReporter == null
-                    ? _launchReporter.StartChildTestReporter(rq)
-                    : _currentReporter.StartChildTestReporter(rq);
-
+                var creationData = DetermineStartTestItemRequest(info["activity"], info);
+                CreateReportItem(creationData);
+               
                 return true;
 
             }
             else
             {
-                FinishTestItemRequest finishTestItemRequest = DetermineFinishItemRequest(info["result"]);
-                
-                _currentReporter.Finish(finishTestItemRequest);
-                _currentReporter = _currentReporter.ParentTestReporter;
-
-                if (_tree.ItemType == TestItemType.Test)
-                {
-                    _isTestCaseOrDescendant = false;
-                }
-                _tree = _tree.GetParent();
+                FinishItemWithStatus(DetermineFinishedItemStatus(info["result"]));
                 return true;
             }
 
+        }
+
+        private void FinishItemWithStatus(TestStatus status)
+        {
+            switch (_tree.Type) 
+            {
+                case "step":
+                    _orangebeard.FinishStep((Guid)_orangebeard.TestRunContext().ActiveStep(), new FinishStep
+                    {
+                        TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                        Status = status,
+                        EndTime = DateTime.UtcNow
+                    });
+                    
+                    break;
+                case "test":
+                case "before":
+                case "after":
+                    _orangebeard.FinishTest((Guid)_orangebeard.TestRunContext().ActiveTest(), new FinishTest
+                    {
+                        TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                        Status = status,
+                        EndTime = DateTime.UtcNow
+                    });
+                    _isTestCaseOrDescendant = false;
+                    break;
+                case "suite":
+                   _orangebeard.TestRunContext().FinishSuite(_orangebeard.TestRunContext().ActiveSuite());
+                    break;
+            }
+            
+            _tree = _tree.GetParent();
         }
 
         private bool EnsureReportingIsInSync(IDictionary<string, string> info)
         {
-            if (_currentReporter != null) return false;
+            if (_orangebeard.TestRunContext().activeSuiteIds.Count > 0) return false;
             
-            StartTestItemRequest rq = DetermineStartTestItemRequest(info["activity"], info);
+            var creationData = DetermineStartTestItemRequest(info["activity"], info);
 
-            if (rq.Type != TestItemType.Suite)
+            if (creationData.Type != "suite")
             {
                 //start toplevel suite first
-                StartTestItemRequest suiteRq = new StartTestItemRequest
+                var suite = new StartSuite
                 {
-                    StartTime = DateTime.UtcNow,
-                    Type = TestItemType.Suite,
-                    Name = ((TestSuite)TestSuite.Current).Children[0].Name,
+                    TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                    SuiteNames = new List<string> { ((TestSuite)TestSuite.Current).Children[0].Name },
                     Description = ((TestSuite)TestSuite.Current).Children[0].Comment,
-                    Attributes = new List<ItemAttribute> { new ItemAttribute { Value = "Suite" } },
-                    HasStats = true
+                    Attributes = new HashSet<Attribute> { new Attribute { Value = "Suite" } },
                 };
 
-                UpdateTree(suiteRq);
-                _currentReporter = _launchReporter.StartChildTestReporter(suiteRq);
+                UpdateTree(suite.SuiteNames[suite.SuiteNames.Count -1], "suite");
+                var suiteId = _orangebeard.StartSuite(suite)[0];
             }
 
             // start current item
-            UpdateTree(rq);
-
-            _currentReporter = _currentReporter == null
-                ? _launchReporter.StartChildTestReporter(rq)
-                : _currentReporter.StartChildTestReporter(rq);
-            
+            CreateReportItem(creationData);
             return true;
-          
         }
 
-        private void UpdateTree(StartTestItemRequest rq)
+        private void CreateReportItem(ItemCreationData creationData)
+        {
+            UpdateTree(creationData.Name, creationData.Type);
+
+            switch (creationData.Type)
+            {
+                case "test":
+                case "before":
+                case "after":
+                    _orangebeard.StartTest(new StartTest
+                    {
+                        TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                        SuiteUUID = _orangebeard.TestRunContext().ActiveSuite(),
+                        TestName = creationData.Name,
+                        TestType = (TestType)Enum.Parse(typeof(TestType), creationData.Type, true),
+                        Description = creationData.Description,
+                        Attributes = creationData.Attributes,
+                        StartTime = creationData.StartTime
+                    });
+                    break;
+                case "step":
+                    _orangebeard.StartStep(new StartStep
+                    {
+                        TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                        TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                        ParentStepUUID = _orangebeard.TestRunContext().ActiveStep(),
+                        StepName = creationData.Name,
+                        Description = creationData.Description,
+                        StartTime = creationData.StartTime
+                    });
+                    break;
+                case "suite":
+                    _orangebeard.StartSuite(new StartSuite
+                    {
+                        TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                        ParentSuiteUUID = _orangebeard.TestRunContext().ActiveSuite(),
+                        SuiteNames = new List<string> { creationData.Name },
+                        Description = creationData.Description,
+                        Attributes = creationData.Attributes,
+                    });
+                    break;
+            }
+        }
+
+        private void UpdateTree(string name, string type)
         {
             if (_tree == null)
             {
-                _tree = new TypeTree(rq.Type, rq.Name);
+                _tree = new TypeTree(type, name);
             }
             else
             {
-                _tree = _tree.Add(rq.Type, rq.Name);
+                _tree = _tree.Add(type, name);
             }
 
-            if (rq.Type == TestItemType.Test)
+            if (type == "test")
             {
                 _isTestCaseOrDescendant = true;
             }
         }
 
-        private StartTestItemRequest DetermineStartTestItemRequest(string activityType, IDictionary<string, string> info)
+        private ItemCreationData DetermineStartTestItemRequest(string activityType, IDictionary<string, string> info)
         {
-            var type = TestItemType.Step;
+            var type = "step";
             var name = "";
             var namePostfix = "";
             var description = "";           
 
-            var attributes = new List<ItemAttribute>();
+            var attributes = new HashSet<Attribute>();
             switch (activityType)
             {
                 case TESTSUITE:
                     var suite = (TestSuite)TestSuite.Current;
-                    type = TestItemType.Suite;
+                    type = "suite";
                     name = info["modulename"];
-                    attributes.Add(new ItemAttribute { Value = "Suite" });
+                    attributes.Add(new Attribute { Value = "Suite" });
                     description = suite.Children.First().Comment;
                     break;
 
@@ -406,53 +412,53 @@ namespace RanorexOrangebeardListener
                     name = info["testcontainername"];
                     if (TestSuite.CurrentTestContainer.IsSmartFolder)
                     {
-                        type = _isTestCaseOrDescendant ? TestItemType.Step : TestItemType.Suite;
-                        attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                        type = _isTestCaseOrDescendant ? "step" : "suite";
+                        attributes.Add(new Attribute { Value = "Smart folder" });
                     }
                     else
                     {
-                        type = TestItemType.Test;
-                        attributes.Add(new ItemAttribute { Value = "Test Case" });
+                        type = "test";
+                        attributes.Add(new Attribute { Value = "Test Case" });
                     }
 
                     description = DescriptionForCurrentContainer();
                     break;
 
                 case SMARTFOLDER_DATAITERATION:
-                    type = _isTestCaseOrDescendant? TestItemType.Step : TestItemType.Suite;
+                    type = _isTestCaseOrDescendant ? "step" : "suite";
                     name = info["testcontainername"];
                     namePostfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
-                    attributes.Add(new ItemAttribute { Value = "Smart folder" });
+                    attributes.Add(new Attribute { Value = "Smart folder" });
                     description = DescriptionForCurrentContainer();
                     break;
 
                 case TESTCASE_DATAITERATION:
-                    type = TestItemType.Test;
+                    type = "test";
                     name = info["testcontainername"];
                     namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
-                    attributes.Add(new ItemAttribute { Value = "Test Case" });
+                    attributes.Add(new Attribute { Value = "Test Case" });
                     description = DescriptionForCurrentContainer();
                     break;
 
                 case TESTMODULE:
-                    type = TestItemType.Step;
+                    type = "step";
                     name = info["modulename"];
-                    attributes.Add(new ItemAttribute { Value = "Module" });
+                    attributes.Add(new Attribute { Value = "Module" });
                     var currentLeaf = (TestModuleLeaf)TestModuleLeaf.Current;
                     if (currentLeaf.Parent is ModuleGroupNode)
                     {
-                        attributes.Add(new ItemAttribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
+                        attributes.Add(new Attribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
                     }
                     if (currentLeaf.IsDescendantOfSetupNode)
                     {
-                        attributes.Add(new ItemAttribute { Value = "Setup" });
-                        type = TestItemType.BeforeMethod;
+                        attributes.Add(new Attribute { Value = "Setup" });
+                        type = "before";
                     }
 
                     if (currentLeaf.IsDescendantOfTearDownNode)
                     {
-                        attributes.Add(new ItemAttribute { Value = "TearDown" });
-                        type = TestItemType.AfterMethod;
+                        attributes.Add(new Attribute { Value = "TearDown" });
+                        type = "after";
                     }
 
                     description = currentLeaf.Comment;
@@ -460,42 +466,36 @@ namespace RanorexOrangebeardListener
                     break;
             }
 
-            var rq = new StartTestItemRequest
+            var data = new ItemCreationData
             {
                 StartTime = DateTime.UtcNow,
                 Type = type,
                 Name = name + namePostfix,
                 Description = description,
                 Attributes = attributes,
-                HasStats = type != TestItemType.Step
             };
-            return rq;
+            return data;
         }
 
-        private FinishTestItemRequest DetermineFinishItemRequest(string result /*IDictionary<string, string> info*/)
+        private TestStatus DetermineFinishedItemStatus(string result /*IDictionary<string, string> info*/)
         {
-            Status status;
+            TestStatus status;
 
             switch(result.ToLower())
             {
                 case "success":
-                    status = Status.Passed;
+                    status = TestStatus.PASSED;
                     break;
                 case "ignored":
-                    status = Status.Skipped;
+                    status = TestStatus.SKIPPED;
                     break;
                 default:
-                    status = Status.Failed;
+                    status = TestStatus.FAILED;
                     LogErrorScreenshots(ActivityStack.Current.Children);
                     break;
             }
-
-            FinishTestItemRequest finishTestItemRequest = new FinishTestItemRequest
-            {
-                EndTime = DateTime.UtcNow,
-                Status = status
-            };
-            return finishTestItemRequest;
+            
+            return status;
         }
 
         private void LogErrorScreenshots(IEnumerable<IReportItem> reportItems)
@@ -573,9 +573,12 @@ namespace RanorexOrangebeardListener
                       !attr[0].Contains("Ranorex version") && 
                       !attr[0].Contains("Memory") && 
                       !attr[0].Contains("Runtime version") 
-                select new ItemAttribute {Key = attr[0], Value = attr[1]}).Concat(_testRunAttributes).ToList();
+                select new Attribute {Key = attr[0], Value = attr[1]}).Concat(_testRunAttributes).ToList();
 
-            _launchReporter.Update(new UpdateLaunchRequest { Attributes = attrs });
+            _orangebeard.UpdateTestRun(_orangebeard.TestRunContext().TestRun, new UpdateTestRun
+            {
+                Attributes = new HashSet<Attribute>(attrs)
+            });
         }
 
         private static LogLevel DetermineLogLevel(string levelStr)
@@ -585,11 +588,11 @@ namespace RanorexOrangebeardListener
             if (Enum.IsDefined(typeof(LogLevel), logLevel))
                 level = (LogLevel) Enum.Parse(typeof(LogLevel), logLevel);
             else if (logLevel.Equals("Failure", StringComparison.InvariantCultureIgnoreCase))
-                level = LogLevel.Error;
+                level = LogLevel.ERROR;
             else if (logLevel.Equals("Warn", StringComparison.InvariantCultureIgnoreCase))
-                level = LogLevel.Warning;
+                level = LogLevel.WARN;
             else
-                level = LogLevel.Info;
+                level = LogLevel.INFO;
             return level;
         }
 
