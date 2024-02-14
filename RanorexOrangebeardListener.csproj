@@ -4,7 +4,7 @@
 	  <TargetFrameworks>net462;net48</TargetFrameworks>
     <PackageId>Orangebeard.RanorexListener</PackageId>
     <Version>2.0.0</Version>
-    <AssemblyVersion>1.1.7.0</AssemblyVersion>
+    <AssemblyVersion>2.0.0</AssemblyVersion>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>Ranorex Orangebeard Listener</Title>
     <Authors>Tom Heintzberger</Authors>
