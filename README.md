@@ -23,6 +23,7 @@
 </div>
 
 ## Build
+(Preferred option is NuGet install!)
  * Clone this repository
  * Open in a .Net IDE
  * Reference Ranorex.Core.dll and Ranorex.Libs.Util.dll from your Ranorex Installation(s) - Ranorex 9.x uses net462, Ranorex 10.x uses net48. - Change the target framework(s) to what you need. Currently, the solution targets net462 and net48, so it needs Ranorex 9.x dll's, or separate references for v9 and v10.'
@@ -30,8 +31,8 @@
  * Build the Ranorex Logger DLL
 
 ## Install
-
- * Add your dll as a reference in your Ranorex Solution
+ * Install from NuGet
+ * If you built it yourself: Add your dll as a reference in your Ranorex Solution
  * Reference it in Program.cs `using RanorexOrangebeardListener;`
  * Attach the logger to your Ranorex report (environment vars can of course be set up elsewhere):
 ```cs

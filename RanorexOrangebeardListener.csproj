@@ -1,9 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
 	  <TargetFrameworks>net462;net48</TargetFrameworks>
-    <Version>1.1.8.0</Version>
-    <AssemblyVersion>1.1.8.0</AssemblyVersion>
+    <PackageId>Orangebeard.RanorexListener</PackageId>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0</AssemblyVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Title>Ranorex Orangebeard Listener</Title>
+    <Authors>Tom Heintzberger</Authors>
+    <Description>A ReportLogger implementation to report Ranorex Test Runs to Orangebeard</Description>
+    <Copyright>2024 Orangebeard.io</Copyright>
+    <PackageProjectUrl>https://orangebeard.io</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>beard.png</PackageIcon>
+    <RepositoryUrl>https://github.com/orangebeard-io/Ranorex-Logger</RepositoryUrl>
+    <RepositoryType>GitHub</RepositoryType>
   </PropertyGroup>
 
 	  
@@ -37,7 +49,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Orangebeard.Client" Version="2.1.5" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Orangebeard.Client" Version="3.0.1" />
   </ItemGroup>
+
+    <ItemGroup>
+        <None Include="beard.png" Pack="true" PackagePath="\" Visible="false" />
+        <None Include="LICENSE.txt" Pack="true" PackagePath="\"/>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
 </Project>
