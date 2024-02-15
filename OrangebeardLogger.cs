@@ -51,19 +51,16 @@ namespace RanorexOrangebeardListener
         /// When converting Ranorex items to Orangebeard items, the context is important.
         /// A Ranorex Smart Folder can become an Orangebeard Suite or an Orangebeard Step, depending on where it appears.
         /// </summary>
-        private TypeTree _tree = null;
+        private TypeTree _tree;
 
         /// <summary>
         /// Indicates if the current Ranorex item maps to an Orangebeard Test, or a descendant of an Orangebeard Test.
         /// </summary>
-        private bool _isTestCaseOrDescendant = false;
+        private bool _isTestCaseOrDescendant;
 
         private bool _inProgress;
 
         private ISet<Attribute> _testRunAttributes;
-
-        private const string CHANGED_COMPONENTS_PATH = @".\changedComponents.json";
-        private const string CHANGED_COMPONENTS_VARIABLE = "orangebeard.changedComponents";
 
         private const string FILE_PATH_PATTERN = @"((((?<!\w)[A-Z,a-z]:)|(\.{0,2}\\))([^\b%\/\|:\n<>""']*))";
         private const string TESTSUITE = "testsuite";
@@ -104,13 +101,13 @@ namespace RanorexOrangebeardListener
         public void End()
         {
             if (!_inProgress) return; //Already finished
-            
+
             Report.SystemSummary();
-            Task.Run(() => _orangebeard.FinishTestRun(_orangebeard.TestRunContext().TestRun, new FinishTestRun())).Wait();
+            Task.Run(() => _orangebeard.FinishTestRun(_orangebeard.TestRunContext().TestRun, new FinishTestRun()))
+                .Wait();
             _inProgress = false;
-            
+
             Report.End(); //Force synchronous finish of any IReportLoggers
-            Console.WriteLine("All done!");
         }
 
         public void LogData(ReportLevel level, string category, string message, object data,
@@ -163,7 +160,8 @@ namespace RanorexOrangebeardListener
                 var patternMatch = Regex.Match(filePath, pattern);
                 if (!patternMatch.Success ||
                     !Path.IsPathRooted(
-                        filePath)) continue; //Ignore relative paths, as they are likely user-generated and tool dependent in html logs
+                        filePath))
+                    continue; //Ignore relative paths, as they are likely user-generated and tool dependent in html logs
                 try
                 {
                     attachmentData = File.ReadAllBytes(filePath);
@@ -383,14 +381,7 @@ namespace RanorexOrangebeardListener
 
         private void UpdateTree(string name, string type)
         {
-            if (_tree == null)
-            {
-                _tree = new TypeTree(type, name);
-            }
-            else
-            {
-                _tree = _tree.Add(type, name);
-            }
+            _tree = _tree == null ? new TypeTree(type, name) : _tree.Add(type, name);
 
             if (type == "test")
             {
@@ -561,32 +552,31 @@ namespace RanorexOrangebeardListener
 
         private static string StripHtml(string str)
         {
-            string cleanStr;
-            cleanStr = str.Contains("<")
-                ? Regex.Replace(ReplaceHtmlParagraphsAndLinebreaks(str), "<[a-zA-Z/].*?>", String.Empty)
+            var cleanStr = str.Contains("<")
+                ? Regex.Replace(ReplaceHtmlParagraphsAndLinebreaks(str), "<[a-zA-Z/].*?>", string.Empty)
                 : str;
             return Regex.IsMatch(cleanStr, "&[a-z]+;") ? HttpUtility.HtmlDecode(cleanStr) : cleanStr;
         }
 
-        private static string ReplaceHtmlParagraphsAndLinebreaks(string str)
-        {
-            return Regex.Replace(str, @"<(br|BR|\/[pP]).*?>", "\r\n");
-        }
+        private static string ReplaceHtmlParagraphsAndLinebreaks(string str) =>
+            Regex.Replace(str, @"<(br|BR|\/[pP]).*?>", "\r\n");
+
 
         private void UpdateTestrunWithSystemInfo(string message)
         {
+            if (Environment.GetEnvironmentVariable("orangebeard.ranorex.systemattributes") == null) return;
+
+            var ranorexAttributesToInclude =
+                Environment.GetEnvironmentVariable("orangebeard.ranorex.systemattributes")?.Split(';');
+
             var launchAttrEntries = message.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
             var attrs = (
                 from entry in launchAttrEntries
                 select entry.Split(new[] { ": " }, StringSplitOptions.None)
                 into attr
-                where attr.Length > 1 &&
-                      !attr[0].Contains("displays") &&
-                      !attr[0].Contains("CPUs") &&
-                      !attr[0].Contains("Ranorex version") &&
-                      !attr[0].Contains("Memory") &&
-                      !attr[0].Contains("Runtime version")
+                where ranorexAttributesToInclude != null && attr.Length > 1 &&
+                      ranorexAttributesToInclude.Any(r => r.Trim().Equals(attr[0], StringComparison.OrdinalIgnoreCase))
                 select new Attribute { Key = attr[0], Value = attr[1] }).Concat(_testRunAttributes).ToList();
 
             _orangebeard.UpdateTestRun(_orangebeard.TestRunContext().TestRun, new UpdateTestRun

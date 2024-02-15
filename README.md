@@ -42,12 +42,28 @@
     Environment.SetEnvironmentVariable("orangebeard.testrun", "Test Run name");
     Environment.SetEnvironmentVariable("orangebeard.description", @"test run description"); //OPTIONAL
     Environment.SetEnvironmentVariable("orangebeard.attributes", @"key:value;single tag"); //OPTIONAL
-	Environment.SetEnvironmentVariable("orangebeard.ref.url", @"https://my-ci-server.net/PRJ/1234"); //OPTIONAL
+    Environment.SetEnvironmentVariable("orangebeard.ref.url", @"https://my-ci-server.net/PRJ/1234"); //OPTIONAL
     Environment.SetEnvironmentVariable("orangebeard.fileupload.patterns", @".*\.txt;.*\.bat"); //OPTIONAL
-
+    
+    Environment.SetEnvironmentVariable("orangebeard.ranorex.systemattributes", "memory; number of displays"); //OPTIONAL
+    
     OrangebeardLogger orangebeard = new OrangebeardLogger();
     Report.AttachLogger(orangebeard);
 ```
+If the `orangebeard.ranorex.systemattributes` parameter is not present, no Ranorex system information will be sent to Orangebeard.
+If set, the content should be a semicolon-separated list of attributes to include. Attribute keys are matched case-insensitive.
+
+Valid attributes are: 
+
+- Ranorex version
+- OS version
+- OS default locale
+- .NET Runtime version
+- Number of logical CPUs
+- Number of displays
+- Screen dimension
+- Memory
+
 
 Now run your test as you normally do and see the results fly in to Orangebeard!
 
