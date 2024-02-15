@@ -3,8 +3,7 @@
   <PropertyGroup>
 	  <TargetFrameworks>net462;net48</TargetFrameworks>
     <PackageId>Orangebeard.RanorexListener</PackageId>
-    <Version>2.0.1</Version>
-    <AssemblyVersion>2.0.1</AssemblyVersion>
+    <Version>2.0.2</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>Ranorex Orangebeard Listener</Title>
     <Authors>Tom Heintzberger</Authors>
@@ -42,11 +41,6 @@
 			<HintPath>..\ranorexAssemblies\10\Ranorex.Libs.Util.dll</HintPath>
 		</Reference>
 	</ItemGroup>
-  
-
-  <ItemGroup>
-    <Folder Include="Requests\" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
