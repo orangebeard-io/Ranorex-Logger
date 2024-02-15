@@ -3,7 +3,7 @@
   <PropertyGroup>
 	  <TargetFrameworks>net462;net48</TargetFrameworks>
     <PackageId>Orangebeard.RanorexListener</PackageId>
-    <Version>2.0.2</Version>
+    <Version>2.0.3</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>Ranorex Orangebeard Listener</Title>
     <Authors>Tom Heintzberger</Authors>
