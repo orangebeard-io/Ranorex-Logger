@@ -71,11 +71,13 @@ namespace RanorexOrangebeardListener
 
         public OrangebeardLogger()
         {
+            var listenerVersion = typeof(OrangebeardLogger).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                .InformationalVersion.Split('+')[0];
+
             _config = new OrangebeardConfiguration()
                 .WithListenerIdentification(
-                    "Ranorex Logger/" +
-                    typeof(OrangebeardLogger).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-                        .InformationalVersion
+                    "Ranorex Logger/" + listenerVersion
                 );
             _orangebeard = new OrangebeardAsyncV3Client(_config);
         }
@@ -217,7 +219,7 @@ namespace RanorexOrangebeardListener
                     MetaData = new AttachmentMetaData
                     {
                         TestRunUUID = _orangebeard.TestRunContext().TestRun,
-                        TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                        TestUUID = _orangebeard.TestRunContext().ActiveTest().Value,
                         StepUUID = _orangebeard.TestRunContext().ActiveStep(),
                         LogUUID = logId,
                         AttachmentTime = DateTime.UtcNow
@@ -244,7 +246,7 @@ namespace RanorexOrangebeardListener
             var metaLogItem = new Log
             {
                 TestRunUUID = _orangebeard.TestRunContext().TestRun,
-                TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                TestUUID = _orangebeard.TestRunContext().ActiveTest().Value,
                 StepUUID = _orangebeard.TestRunContext().ActiveStep(),
                 LogTime = DateTime.UtcNow,
                 LogLevel = LogLevel.DEBUG,
@@ -282,7 +284,7 @@ namespace RanorexOrangebeardListener
             switch (_tree.Type)
             {
                 case "step":
-                    _orangebeard.FinishStep((Guid)_orangebeard.TestRunContext().ActiveStep(), new FinishStep
+                    _orangebeard.FinishStep(_orangebeard.TestRunContext().ActiveStep().Value, new FinishStep
                     {
                         TestRunUUID = _orangebeard.TestRunContext().TestRun,
                         Status = status,
@@ -293,7 +295,7 @@ namespace RanorexOrangebeardListener
                 case "test":
                 case "before":
                 case "after":
-                    _orangebeard.FinishTest((Guid)_orangebeard.TestRunContext().ActiveTest(), new FinishTest
+                    _orangebeard.FinishTest(_orangebeard.TestRunContext().ActiveTest().Value, new FinishTest
                     {
                         TestRunUUID = _orangebeard.TestRunContext().TestRun,
                         Status = status,
@@ -359,7 +361,7 @@ namespace RanorexOrangebeardListener
                     _orangebeard.StartStep(new StartStep
                     {
                         TestRunUUID = _orangebeard.TestRunContext().TestRun,
-                        TestUUID = (Guid)_orangebeard.TestRunContext().ActiveTest(),
+                        TestUUID = _orangebeard.TestRunContext().ActiveTest().Value,
                         ParentStepUUID = _orangebeard.TestRunContext().ActiveStep(),
                         StepName = creationData.Name,
                         Description = creationData.Description,
@@ -404,7 +406,7 @@ namespace RanorexOrangebeardListener
                     type = "suite";
                     name = info["modulename"];
                     attributes.Add(new Attribute { Value = "Suite" });
-                    description = suite.Children.First().Comment;
+                    description = suite.Children[0].Comment;
                     break;
 
                 case TESTCONTAINER:
@@ -587,16 +589,13 @@ namespace RanorexOrangebeardListener
 
         private static LogLevel DetermineLogLevel(string levelStr)
         {
-            LogLevel level;
-            var logLevel = char.ToUpper(levelStr[0]) + levelStr.Substring(1);
-            if (Enum.IsDefined(typeof(LogLevel), logLevel))
-                level = (LogLevel)Enum.Parse(typeof(LogLevel), logLevel);
-            else if (logLevel.Equals("Failure", StringComparison.InvariantCultureIgnoreCase))
-                level = LogLevel.ERROR;
-            else if (logLevel.Equals("Warn", StringComparison.InvariantCultureIgnoreCase))
-                level = LogLevel.WARN;
-            else
-                level = LogLevel.INFO;
+            var logLevel = levelStr.ToUpper();
+            if (Enum.TryParse(logLevel, true, out LogLevel level)) return level;
+
+            level = logLevel.Equals("Failure", StringComparison.InvariantCultureIgnoreCase)
+                ? LogLevel.ERROR
+                : LogLevel.INFO;
+
             return level;
         }
 
@@ -609,7 +608,7 @@ namespace RanorexOrangebeardListener
         /// <returns>The boolean value <code>true</code> if and only if the given log level has at least the same level of severity as the threshold value.</returns>
         private static bool MeetsMinimumSeverity(LogLevel level, LogLevel threshold)
         {
-            return ((int)level) >= (int)threshold;
+            return ((int)level) <= (int)threshold;
         }
     }
 }
