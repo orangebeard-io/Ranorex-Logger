@@ -108,7 +108,7 @@ namespace RanorexOrangebeardListener
             Task.Run(() => _orangebeard.FinishTestRun(_orangebeard.TestRunContext().TestRun, new FinishTestRun()))
                 .Wait();
             _inProgress = false;
-
+            Console.WriteLine("Orangebeard Report finished");
             Report.End(); //Force synchronous finish of any IReportLoggers
         }
 
@@ -319,12 +319,17 @@ namespace RanorexOrangebeardListener
 
             if (creationData.Type != "suite")
             {
+                var suiteDescription = ((TestSuite)TestSuite.Current).Children[0].Comment;
+                suiteDescription = suiteDescription.Length > 1024
+                    ? suiteDescription.Substring(0, 1021) + "..."
+                    : suiteDescription;
+
                 //start toplevel suite first
                 var suite = new StartSuite
                 {
                     TestRunUUID = _orangebeard.TestRunContext().TestRun,
                     SuiteNames = new List<string> { ((TestSuite)TestSuite.Current).Children[0].Name },
-                    Description = ((TestSuite)TestSuite.Current).Children[0].Comment,
+                    Description = suiteDescription,
                     Attributes = new HashSet<Attribute> { new Attribute { Value = "Suite" } },
                 };
 
