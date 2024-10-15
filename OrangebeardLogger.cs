@@ -225,7 +225,7 @@ namespace RanorexOrangebeardListener
                         AttachmentTime = DateTime.UtcNow
                     }
                 };
-                _orangebeard.SendAttachment(attachment);
+                _ = _orangebeard.SendAttachment(attachment);
             }
 
             if (MeetsMinimumSeverity(DetermineLogLevel(level.Name), LogLevel.WARN) && metaInfos.Count >= 1)
@@ -459,13 +459,13 @@ namespace RanorexOrangebeardListener
                     if (currentLeaf.IsDescendantOfSetupNode)
                     {
                         attributes.Add(new Attribute { Value = "Setup" });
-                        type = "before";
+                        type = _isTestCaseOrDescendant ? "step" : "before";
                     }
 
                     if (currentLeaf.IsDescendantOfTearDownNode)
                     {
                         attributes.Add(new Attribute { Value = "TearDown" });
-                        type = "after";
+                        type = _isTestCaseOrDescendant ? "step" : "after";
                     }
 
                     description = currentLeaf.Comment;
