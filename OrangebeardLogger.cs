@@ -115,13 +115,15 @@ namespace RanorexOrangebeardListener
         public void LogData(ReportLevel level, string category, string message, object data,
             IDictionary<string, string> metaInfos)
         {
-            //Currently only screenshot attachments are supported. Can Ranorex attach anything else?
+            // Currently only screenshot attachments are supported. Can Ranorex attach anything else?
             if (!(data is Image img)) return;
 
             using (var ms = new MemoryStream())
             {
                 img.Save(ms, ImageFormat.Jpeg);
                 metaInfos.TryGetValue("attachmentFileName", out var filename);
+                if (filename == null) filename = category + ".jpg"; // Use category as default filename if null
+
                 var dataBytes = ms.ToArray();
                 LogToOrangebeard(level, category, message, dataBytes, "image/jpeg", filename, metaInfos);
             }
@@ -154,10 +156,10 @@ namespace RanorexOrangebeardListener
                 return;
             }
 
-            Match match = Regex.Match(message, FILE_PATH_PATTERN);
+            var match = Regex.Match(message, FILE_PATH_PATTERN);
             if (!match.Success) return; //Look only at first match, as we support max 1 attachment per log entry
-            string filePath = match.Value;
-            foreach (string pattern in _config.FileUploadPatterns)
+            var filePath = match.Value;
+            foreach (var pattern in _config.FileUploadPatterns)
             {
                 var patternMatch = Regex.Match(filePath, pattern);
                 if (!patternMatch.Success ||
@@ -260,23 +262,22 @@ namespace RanorexOrangebeardListener
         private bool HandlePotentialStartFinishLog(IDictionary<string, string> info)
         {
             //check if there is an active (root) suite, otherwise make sure it has started
-            bool forcedSynchronization = EnsureReportingIsInSync(info);
+            var forcedSynchronization = EnsureReportingIsInSync(info);
 
-            if (!info.ContainsKey("activity")) return false;
+            if (!info.TryGetValue("activity", out var activity)) return false;
 
             //If there is no result key and we have not auto-populated suite and item, we need to start an item
             if (!info.ContainsKey("result") && !forcedSynchronization)
             {
-                var creationData = DetermineStartTestItemRequest(info["activity"], info);
+                var creationData = DetermineStartTestItemRequest(activity, info);
                 CreateReportItem(creationData);
-
-                return true;
             }
             else
             {
                 FinishItemWithStatus(DetermineFinishedItemStatus(info["result"]));
-                return true;
             }
+
+            return true;
         }
 
         private void FinishItemWithStatus(TestStatus status)
