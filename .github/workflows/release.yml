@@ -4,31 +4,68 @@ on:
   push:
     branches: [ master ]
 
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
-            
-    - name: Get Version info
-      uses: naminodarie/get-net-sdk-project-versions-action@v1
-      id: get-version
-      with:
-        proj-path: RanorexOrangebeardListener.csproj
-    
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.get-version.outputs.informational-version }}
-        release_name: Release ${{ steps.get-version.outputs.informational-version }}
-        draft: false
-        prerelease: false
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - uses: actions/checkout@v2
+
+      - name: Bump versions
+        uses: SiqiLu/dotnet-bump-version@master
+        with:
+          version_files: "**/*.csproj"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Version info
+        uses: naminodarie/get-net-sdk-project-versions-action@v1
+        id: get-version
+        with:
+          proj-path: RanorexOrangebeardListener.csproj
+
+      - name: NuGet PKG Restore
+        run: msbuild -t:restore RanorexOrangebeardListener.sln
+
+      - name: Build
+        run: msbuild RanorexOrangebeardListener.csproj /p:Configuration=Release /p:NoWarn=1591
+
+      - name: Archive Release
+        uses: papeloto/action-zip@v1
+        with:
+          files: bin\Release
+          dest: release_artifacts.zip
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get-version.outputs.assembly-version }}
+          release_name: Release ${{ steps.get-version.outputs.assembly-version }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release_artifacts.zip
+          asset_name: release_artifacts.zip
+          asset_content_type: application/zip
+
+      - name: Publish to NuGet
+        id: publish_nuget
+        uses: alirezanet/publish-nuget@v3.0.4
+        with:
+          PROJECT_FILE_PATH: RanorexOrangebeardListener.csproj
+          VERSION_REGEX: ^\s*<Version>(.*)<\/Version>\s*$
+          TAG_COMMIT: false
+          NUGET_KEY: ${{secrets.NUGET_API_KEY}}
         
-    - name: Bump versions
-      uses: SiqiLu/dotnet-bump-version@master
-      with:
-        version_files: "**/*.csproj"
-        github_token: ${{ secrets.GITHUB_TOKEN }}
