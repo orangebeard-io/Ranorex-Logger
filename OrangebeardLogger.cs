@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Orangebeard.io (https://www.orangebeard.io)
+ * Copyright 2025 Orangebeard.io (https://www.orangebeard.io)
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -331,7 +331,7 @@ namespace RanorexOrangebeardListener
                     TestRunUUID = _orangebeard.TestRunContext().TestRun,
                     SuiteNames = new List<string> { ((TestSuite)TestSuite.Current).Children[0].Name },
                     Description = suiteDescription,
-                    Attributes = new HashSet<Attribute> { new Attribute { Value = "Suite" } },
+                    Attributes = new HashSet<Attribute>(),
                 };
 
                 UpdateTree(suite.SuiteNames[suite.SuiteNames.Count - 1], "suite");
@@ -411,7 +411,6 @@ namespace RanorexOrangebeardListener
                     var suite = (TestSuite)TestSuite.Current;
                     type = "suite";
                     name = info["modulename"];
-                    attributes.Add(new Attribute { Value = "Suite" });
                     description = suite.Children[0].Comment;
                     break;
 
@@ -420,12 +419,10 @@ namespace RanorexOrangebeardListener
                     if (TestSuite.CurrentTestContainer.IsSmartFolder)
                     {
                         type = _isTestCaseOrDescendant ? "step" : "suite";
-                        attributes.Add(new Attribute { Value = "Smart folder" });
                     }
                     else
                     {
                         type = "test";
-                        attributes.Add(new Attribute { Value = "Test Case" });
                     }
 
                     description = DescriptionForCurrentContainer();
@@ -435,7 +432,6 @@ namespace RanorexOrangebeardListener
                     type = _isTestCaseOrDescendant ? "step" : "suite";
                     name = info["testcontainername"];
                     namePostfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
-                    attributes.Add(new Attribute { Value = "Smart folder" });
                     description = DescriptionForCurrentContainer();
                     break;
 
@@ -443,34 +439,23 @@ namespace RanorexOrangebeardListener
                     type = "test";
                     name = info["testcontainername"];
                     namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
-                    attributes.Add(new Attribute { Value = "Test Case" });
                     description = DescriptionForCurrentContainer();
                     break;
 
                 case TESTMODULE:
                     type = "step";
                     name = info["modulename"];
-                    attributes.Add(new Attribute { Value = "Module" });
                     var currentLeaf = (TestModuleLeaf)TestModuleLeaf.Current;
-                    if (currentLeaf.Parent is ModuleGroupNode)
-                    {
-                        attributes.Add(new Attribute { Key = "Module Group", Value = currentLeaf.Parent.DisplayName });
-                    }
-
                     if (currentLeaf.IsDescendantOfSetupNode)
                     {
-                        attributes.Add(new Attribute { Value = "Setup" });
                         type = _isTestCaseOrDescendant ? "step" : "before";
                     }
 
                     if (currentLeaf.IsDescendantOfTearDownNode)
                     {
-                        attributes.Add(new Attribute { Value = "TearDown" });
                         type = _isTestCaseOrDescendant ? "step" : "after";
                     }
-
                     description = currentLeaf.Comment;
-
                     break;
             }
 
