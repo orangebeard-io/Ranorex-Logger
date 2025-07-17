@@ -66,7 +66,9 @@ namespace RanorexOrangebeardListener
         private const string TESTSUITE = "testsuite";
         private const string TESTCONTAINER = "testcontainer";
         private const string SMARTFOLDER_DATAITERATION = "smartfolder_dataiteration";
+        private const string SMARTFOLDER_RUNITERATION = "smartfolder_runiteration";
         private const string TESTCASE_DATAITERATION = "testcase_dataiteration";
+        private const string TESTCASE_RUNITERATION = "testcase_runiteration";
         private const string TESTMODULE = "testmodule";
 
         public OrangebeardLogger()
@@ -434,11 +436,25 @@ namespace RanorexOrangebeardListener
                     namePostfix = " (data iteration #" + info["smartfolderdataiteration"] + ")";
                     description = DescriptionForCurrentContainer();
                     break;
+                
+                case SMARTFOLDER_RUNITERATION:
+                    type = _isTestCaseOrDescendant ? "step" : "suite";
+                    name = info["testcontainername"];
+                    namePostfix = " (iteration #" + info["smartfolderruniteration"] + ")";
+                    description = DescriptionForCurrentContainer();
+                    break;
 
                 case TESTCASE_DATAITERATION:
                     type = "test";
                     name = info["testcontainername"];
                     namePostfix = " (data iteration #" + info["testcasedataiteration"] + ")";
+                    description = DescriptionForCurrentContainer();
+                    break;
+                
+                case TESTCASE_RUNITERATION:
+                    type = "test";
+                    name = info["testcontainername"];
+                    namePostfix = " (iteration #" + info["testcaseruniteration"] + ")";
                     description = DescriptionForCurrentContainer();
                     break;
 
