@@ -21,10 +21,6 @@ using System.Threading.Tasks;
 using System.Web;
 using Orangebeard.Client.V3;
 using Orangebeard.Client.V3.OrangebeardConfig;
-using Ranorex;
-using Ranorex.Core;
-using Ranorex.Core.Reporting;
-using Ranorex.Core.Testing;
 using DateTime = System.DateTime;
 using Attribute = Orangebeard.Client.V3.Entity.Attribute;
 using Orangebeard.Client.V3.Entity.TestRun;
@@ -36,6 +32,10 @@ using Orangebeard.Client.V3.Entity.Attachment;
 using Orangebeard.Client.V3.Entity.Suite;
 using Orangebeard.Client.V3.Entity.Test;
 using Orangebeard.Client.V3.Entity.Step;
+using Ranorex.Core.Reporting;
+using Ranorex;
+using Ranorex.Core.Testing;
+using Ranorex.Core;
 
 namespace RanorexOrangebeardListener
 {
@@ -99,6 +99,7 @@ namespace RanorexOrangebeardListener
                     Attributes = _testRunAttributes,
                 }
             );
+            
             _inProgress = true;
         }
 
@@ -307,7 +308,7 @@ namespace RanorexOrangebeardListener
                     _isTestCaseOrDescendant = false;
                     break;
                 case "suite":
-                    _orangebeard.TestRunContext().FinishSuite(_orangebeard.TestRunContext().ActiveSuite());
+                    _orangebeard.TestRunContext().FinishSuite(_orangebeard.TestRunContext().ActiveSuite().Value);
                     break;
             }
 
@@ -357,7 +358,7 @@ namespace RanorexOrangebeardListener
                     _orangebeard.StartTest(new StartTest
                     {
                         TestRunUUID = _orangebeard.TestRunContext().TestRun,
-                        SuiteUUID = _orangebeard.TestRunContext().ActiveSuite(),
+                        SuiteUUID = _orangebeard.TestRunContext().ActiveSuite().Value,
                         TestName = creationData.Name,
                         TestType = (TestType)Enum.Parse(typeof(TestType), creationData.Type, true),
                         Description = creationData.Description,

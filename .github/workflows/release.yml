@@ -15,13 +15,14 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Bump versions
-        uses: SiqiLu/dotnet-bump-version@master
+        uses: mediatech15/dotnet-bump-version-action@v1.0.2
         with:
           version_files: "**/*.csproj"
+          bump: "minor"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get Version info
-        uses: naminodarie/get-net-sdk-project-versions-action@v1
+        uses: naminodarie/get-net-sdk-project-versions-action@v2
         id: get-version
         with:
           proj-path: RanorexOrangebeardListener.csproj
@@ -33,11 +34,12 @@ jobs:
         run: msbuild RanorexOrangebeardListener.csproj /p:Configuration=Release /p:NoWarn=1591
 
       - name: Archive Release
-        uses: papeloto/action-zip@v1
+        uses: thedoctor0/zip-release@0.7.5
         with:
-          files: bin\Release
-          dest: release_artifacts.zip
-
+          type: 'zip'
+          directory: bin\Release
+          filename: 'release_artifacts.zip'
+      
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -62,7 +64,7 @@ jobs:
 
       - name: Publish to NuGet
         id: publish_nuget
-        uses: alirezanet/publish-nuget@v3.0.4
+        uses: alirezanet/publish-nuget@v3.0.5
         with:
           PROJECT_FILE_PATH: RanorexOrangebeardListener.csproj
           VERSION_REGEX: ^\s*<Version>(.*)<\/Version>\s*$

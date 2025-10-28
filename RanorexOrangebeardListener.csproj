@@ -1,55 +1,44 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	  <TargetFrameworks>net462;net48</TargetFrameworks>
+	  <TargetFrameworks>net48</TargetFrameworks>
     <PackageId>Orangebeard.RanorexListener</PackageId>
     <Version>2.0.9</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>Ranorex Orangebeard Listener</Title>
     <Authors>Tom Heintzberger</Authors>
     <Description>A ReportLogger implementation to report Ranorex Test Runs to Orangebeard</Description>
-    <Copyright>2024 Orangebeard.io</Copyright>
+    <Copyright>2025 Orangebeard.io</Copyright>
     <PackageProjectUrl>https://orangebeard.io</PackageProjectUrl>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>beard.png</PackageIcon>
     <RepositoryUrl>https://github.com/orangebeard-io/Ranorex-Logger</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
+    <AssemblyVersion>2.0.9</AssemblyVersion>
   </PropertyGroup>
 
 	  
   <ItemGroup>
     <Reference Include="PresentationFramework" />    
+    <Reference Include="Ranorex.Core">
+      <HintPath>C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Ranorex.Libs.Util">
+      <HintPath>C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
+    </Reference>    
 	<Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
-	
-  <ItemGroup Condition="'$(TargetFramework)' == 'net462'">
-	  <Reference Include="Ranorex.Core">
-		  <HintPath>..\ranorexAssemblies\9\Ranorex.Core.dll</HintPath>
-	  </Reference>
-	  <Reference Include="Ranorex.Libs.Util">
-		  <HintPath>..\ranorexAssemblies\9\Ranorex.Libs.Util.dll</HintPath>
-	  </Reference>
-  </ItemGroup>
-
-	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-		<Reference Include="Ranorex.Core">
-			<HintPath>..\ranorexAssemblies\10\Ranorex.Core.dll</HintPath>
-		</Reference>
-		<Reference Include="Ranorex.Libs.Util">
-			<HintPath>..\ranorexAssemblies\10\Ranorex.Libs.Util.dll</HintPath>
-		</Reference>
-	</ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Orangebeard.Client" Version="3.0.5" />
+    <PackageReference Include="Orangebeard.Client" Version="3.1.0" />
   </ItemGroup>
 
     <ItemGroup>
         <None Include="beard.png" Pack="true" PackagePath="\" Visible="false" />
-        <None Include="LICENSE.txt" Pack="true" PackagePath="\"/>
-        <None Include="README.md" Pack="true" PackagePath="\"/>
+        <None Include="LICENSE.txt" Pack="true" PackagePath="\" />
+        <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 </Project>

@@ -34,7 +34,8 @@
  * Install from NuGet
  * If you built it yourself: Add your dll as a reference in your Ranorex Solution
  * Reference it in Program.cs `using RanorexOrangebeardListener;`
- * Attach the logger to your Ranorex report (environment vars can of course be set up elsewhere):
+ * Attach the logger to your Ranorex report. This can be done in Program.cs, or in a code module to be used as the first setup step. The Loggerwill then automatically create the root siuite.
+ * Environment vars can of course be set up elsewhere, or use orangebeard.json. See below:
 ```cs
     Environment.SetEnvironmentVariable("orangebeard.endpoint", "https://your-instance.orangebeard.app");
     Environment.SetEnvironmentVariable("orangebeard.accessToken", "api-token-for-orangebeard");
@@ -50,7 +51,25 @@
     OrangebeardLogger orangebeard = new OrangebeardLogger();
     Report.AttachLogger(orangebeard);
 ```
-If the `orangebeard.ranorex.systemattributes` parameter is not present, no Ranorex system information will be sent to Orangebeard.
+orangebeard.json: (in project work directory, or above in the path)
+```json
+{
+  "endpoint": "https://app.orangebeard.io/{ORGANIZATION}",
+  "accessToken": "{LISTENER_TOKEN}",
+  "project": "{PROJECT}",
+  "testset": "{TESTSET}",
+  "description": "A description",
+  "attributes": [
+    {
+      "key": "Tool",
+      "value": "Ranorex"
+    }
+  ],
+  "ref.url": "https://docs.orangebeard.io/"
+}
+```
+
+If the `orangebeard.ranorex.systemattributes` environment variable is not present, no Ranorex system information will be sent to Orangebeard.
 If set, the content should be a semicolon-separated list of attributes to include. Attribute keys are matched case-insensitive.
 
 Valid attributes are: 
