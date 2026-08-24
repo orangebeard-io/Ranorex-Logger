@@ -8,11 +8,21 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write  # required for NuGet Trusted Publishing (OIDC token issuance)
     steps:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
 
       - uses: actions/checkout@v2
+
+      - name: Checkout Ranorex DLLs
+        uses: actions/checkout@v4
+        with:
+          repository: orangebeard-io/rx-libs
+          token: ${{ secrets.RX_LIBS_TOKEN }}
+          path: rxLibs
 
       - name: Bump versions
         uses: mediatech15/dotnet-bump-version-action@v1.0.2
@@ -39,7 +49,7 @@ jobs:
           type: 'zip'
           directory: bin\Release
           filename: 'release_artifacts.zip'
-      
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -62,12 +72,11 @@ jobs:
           asset_name: release_artifacts.zip
           asset_content_type: application/zip
 
-      - name: Publish to NuGet
-        id: publish_nuget
-        uses: alirezanet/publish-nuget@v3.0.5
+      - name: NuGet login (OIDC -> temporary API key)
+        uses: NuGet/login@v1
+        id: login
         with:
-          PROJECT_FILE_PATH: RanorexOrangebeardListener.csproj
-          VERSION_REGEX: ^\s*<Version>(.*)<\/Version>\s*$
-          TAG_COMMIT: false
-          NUGET_KEY: ${{secrets.NUGET_API_KEY}}
-        
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Publish to NuGet
+        run: dotnet nuget push bin\Release\*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

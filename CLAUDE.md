@@ -12,7 +12,7 @@ This is a .NET library (`Orangebeard.RanorexListener`) that implements Ranorex's
 
 Build requires Ranorex Studio to be installed at `C:\Program Files (x86)\Ranorex\Studio\Bin\` — the project references `Ranorex.Core.dll` and `Ranorex.Libs.Util.dll` from that path via `<HintPath>`.
 
-If Ranorex Studio isn't installed, a local, untracked `rxLibs/` folder can hold copies of the needed DLLs (`Ranorex.Core.dll`, `Ranorex.Libs.Util.dll`, and — only needed by the test project, see below — `Ranorex.Common.Net35.dll`) as a fallback. `rxLibs/` is intentionally not committed: Ranorex's DLLs are proprietary and shouldn't be redistributed in this public repo. `RanorexOrangebeardListenerTests.csproj` references both locations via `Exists()`-conditioned `<Reference>` entries, preferring the real Ranorex Studio install when present.
+If Ranorex Studio isn't installed, a local, untracked `rxLibs/` folder can hold copies of the needed DLLs (`Ranorex.Core.dll`, `Ranorex.Libs.Util.dll`, and — only needed by the test project, see below — `Ranorex.Common.Net35.dll`) as a fallback. The canonical source for these is the private `orangebeard-io/rx-libs` repo. `rxLibs/` is intentionally not committed here: Ranorex's DLLs are proprietary and shouldn't be redistributed in this public repo. Both `RanorexOrangebeardListener.csproj` and `RanorexOrangebeardListenerTests.csproj` reference both locations via `Exists()`-conditioned `<Reference>` entries, preferring the real Ranorex Studio install when present. CI populates `rxLibs/` by checking out `rx-libs` directly — see Release process below.
 
 ```powershell
 # Restore packages
@@ -72,8 +72,9 @@ Guards against the logger being attached after a test suite has already started.
 
 Releases are automated via GitHub Actions (`.github/workflows/release.yml`). On every push to `master`:
 1. The minor version is bumped in the `.csproj` automatically.
-2. The project is built with MSBuild.
-3. A GitHub release is created and tagged with the version.
-4. The NuGet package is published to nuget.org.
+2. `orangebeard-io/rx-libs` (a private repo holding `Ranorex.Core.dll`, `Ranorex.Libs.Util.dll`, `Ranorex.Common.Net35.dll` — see the Build section above) is checked out into `rxLibs/`, authenticated via the `RX_LIBS_TOKEN` secret.
+3. The project is built with MSBuild, using the `rxLibs/` fallback references.
+4. A GitHub release is created and tagged with the version.
+5. The NuGet package is published to nuget.org via [Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing) — a short-lived API key obtained via GitHub OIDC (`NuGet/login@v1`), not a stored `NUGET_API_KEY` secret. This requires a `NUGET_USER` secret (the nuget.org profile name) and a Trusted Publishing policy on nuget.org whose **Workflow File** is set to exactly `release.yml`.
 
 **Do not manually bump the version** — the CI pipeline handles it.
