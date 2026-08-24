@@ -28,7 +28,7 @@ jobs:
       - name: Bump versions
         uses: mediatech15/dotnet-bump-version-action@v1.0.2
         with:
-          version_files: "**/*.csproj"
+          version_files: "RanorexOrangebeardListener.csproj"
           bump: "minor"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
