@@ -31,6 +31,7 @@ jobs:
           version_files: "RanorexOrangebeardListener.csproj"
           bump: "minor"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          do_commit: "true"
 
       - name: Get Version info
         uses: naminodarie/get-net-sdk-project-versions-action@v2
@@ -57,8 +58,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.get-version.outputs.assembly-version }}
-          release_name: Release ${{ steps.get-version.outputs.assembly-version }}
+          tag_name: ${{ steps.get-version.outputs.version }}                                                                                                                                                              
+          release_name: Release ${{ steps.get-version.outputs.version }}
           draft: false
           prerelease: false
 
