@@ -2,6 +2,10 @@
 
   <PropertyGroup>
 	  <TargetFrameworks>net48</TargetFrameworks>
+    <!-- RanorexOrangebeardListenerTests lives in a subfolder of this project's own directory;
+         without this, the default **/*.cs glob below would also try to compile the test files
+         (and the test .csproj itself) into this project. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);RanorexOrangebeardListenerTests\**</DefaultItemExcludes>
     <PackageId>Orangebeard.RanorexListener</PackageId>
     <Version>2.0.9</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -20,13 +24,22 @@
 
 	  
   <ItemGroup>
-    <Reference Include="PresentationFramework" />    
-    <Reference Include="Ranorex.Core">
+    <Reference Include="PresentationFramework" />
+    <!-- Prefers a real Ranorex Studio install; falls back to the repo-local rxLibs/ folder
+         (untracked locally, or checked out from the private orangebeard-io/rx-libs repo in CI -
+         see CLAUDE.md and .github/workflows/release.yml) when Ranorex Studio isn't installed. -->
+    <Reference Include="Ranorex.Core" Condition="Exists('C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll')">
       <HintPath>C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Ranorex.Libs.Util">
+    <Reference Include="Ranorex.Libs.Util" Condition="Exists('C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll')">
       <HintPath>C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll</HintPath>
-    </Reference>    
+    </Reference>
+    <Reference Include="Ranorex.Core" Condition="!Exists('C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Core.dll')">
+      <HintPath>rxLibs\Ranorex.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Ranorex.Libs.Util" Condition="!Exists('C:\Program Files (x86)\Ranorex\Studio\Bin\Ranorex.Libs.Util.dll')">
+      <HintPath>rxLibs\Ranorex.Libs.Util.dll</HintPath>
+    </Reference>
 	<Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
