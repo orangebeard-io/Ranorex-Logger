@@ -48,7 +48,7 @@ jobs:
         uses: thedoctor0/zip-release@0.7.5
         with:
           type: 'zip'
-          directory: bin\Release
+          path: bin\Release
           filename: 'release_artifacts.zip'
 
       - name: Create Release
