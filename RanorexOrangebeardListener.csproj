@@ -2,6 +2,10 @@
 
   <PropertyGroup>
 	  <TargetFrameworks>net48</TargetFrameworks>
+    <!-- RanorexOrangebeardListenerTests lives in a subfolder of this project's own directory;
+         without this, the default **/*.cs glob below would also try to compile the test files
+         (and the test .csproj itself) into this project. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);RanorexOrangebeardListenerTests\**</DefaultItemExcludes>
     <PackageId>Orangebeard.RanorexListener</PackageId>
     <Version>2.0.9</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

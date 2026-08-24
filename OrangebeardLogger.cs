@@ -15,6 +15,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -44,7 +45,26 @@ namespace RanorexOrangebeardListener
     {
         private readonly OrangebeardAsyncV3Client _orangebeard;
         private readonly OrangebeardConfiguration _config;
-        private readonly List<string> _reportedErrorScreenshots = new List<string>();
+
+        // Keyed by a hash of the encoded image bytes, not by filename: Ranorex-initiated LogData
+        // calls (e.g. an explicit Report.Screenshot() in test code) never populate an
+        // "attachmentFileName" meta key - that's an OrangebeardLogger-only convention set by
+        // LogErrorScreenshots below - so a filename-based check can never recognize a screenshot
+        // streamed live here as the same one LogErrorScreenshots later re-discovers via
+        // ReportItem.ScreenshotFileName. Content hashing works regardless of which path sees the
+        // image first.
+        private readonly HashSet<string> _reportedScreenshotHashes = new HashSet<string>();
+
+        // Correlates an already-sent plain-text log entry with the Orangebeard logId it was given,
+        // keyed by (level, category, message) - the exact triple Ranorex hands to every registered
+        // logger for a given ReportItem, so it matches both our own LogText call and the same
+        // ReportItem's Level/Category/Message when later found via LogErrorScreenshots. A screenshot
+        // discovered for a matching entry is attached to that logId instead of creating a duplicate
+        // "[Screenshot]" log. A Stack (not a Queue) so that repeated identical messages resolve to
+        // the most recently logged occurrence, which is the more likely match. Cleared whenever the
+        // enclosing test/before/after finishes, since a screenshot is never looked up outside the
+        // scope of the item that is currently finishing.
+        private readonly Dictionary<string, Stack<Guid>> _pendingLogIdsByMessage = new Dictionary<string, Stack<Guid>>();
 
         /// <summary>
         /// Context information required for properly converting Ranorex items to Orangebeard items.
@@ -90,6 +110,7 @@ namespace RanorexOrangebeardListener
         {
             if (_orangebeard.TestRunContext() != null) return;
             _testRunAttributes = _config.Attributes ?? new HashSet<Attribute>();
+
             _ = _orangebeard.StartTestRun(
                 new StartTestRun()
                 {
@@ -120,16 +141,34 @@ namespace RanorexOrangebeardListener
         {
             // Currently only screenshot attachments are supported. Can Ranorex attach anything else?
             if (!(data is Image img)) return;
+            if (!TryEncodeAndDedupeScreenshot(img, out var dataBytes)) return;
 
+            metaInfos.TryGetValue("attachmentFileName", out var filename);
+            if (filename == null) filename = category + ".jpg"; // Use category as default filename if null
+
+            LogToOrangebeard(level, category, message, dataBytes, "image/jpeg", filename, metaInfos);
+        }
+
+        // Encodes the screenshot as JPEG and dedupes by content hash. Returns false (and leaves
+        // dataBytes populated but unused by the caller) if this exact image was already sent -
+        // shared by LogData (screenshots streamed live via Ranorex's broadcast) and
+        // AttachScreenshotToExistingLog (screenshots backfilled by LogErrorScreenshots), which are
+        // two independent discovery paths for what can be the same underlying image.
+        internal bool TryEncodeAndDedupeScreenshot(Image img, out byte[] dataBytes)
+        {
             using (var ms = new MemoryStream())
             {
                 img.Save(ms, ImageFormat.Jpeg);
-                metaInfos.TryGetValue("attachmentFileName", out var filename);
-                if (filename == null) filename = category + ".jpg"; // Use category as default filename if null
-
-                var dataBytes = ms.ToArray();
-                LogToOrangebeard(level, category, message, dataBytes, "image/jpeg", filename, metaInfos);
+                dataBytes = ms.ToArray();
             }
+
+            string hash;
+            using (var sha256 = SHA256.Create())
+            {
+                hash = Convert.ToBase64String(sha256.ComputeHash(dataBytes));
+            }
+
+            return _reportedScreenshotHashes.Add(hash);
         }
 
         public void LogText(ReportLevel level, string category, string message, bool escape,
@@ -141,14 +180,34 @@ namespace RanorexOrangebeardListener
             }
             else if (!HandlePotentialStartFinishLog(metaInfos))
             {
+                // Captured before PopulateAttachmentData can rewrite message (it appends a failure
+                // note on an attach error) - the correlation key must match Ranorex's own,
+                // unmodified ReportItem.Message, which LogErrorScreenshots reads later.
+                var originalMessage = message;
+
                 string attachmentMimeType = null;
                 byte[] attachmentData = null;
                 string attachmentFileName = null;
                 PopulateAttachmentData(ref message, ref attachmentMimeType, ref attachmentData, ref attachmentFileName);
-                LogToOrangebeard(level, category, message, attachmentData, attachmentMimeType, attachmentFileName,
-                    metaInfos);
+                var logId = LogToOrangebeard(level, category, message, attachmentData, attachmentMimeType,
+                    attachmentFileName, metaInfos);
+
+                if (logId.HasValue)
+                {
+                    var key = LogCorrelationKey(level.Name, category, originalMessage);
+                    if (!_pendingLogIdsByMessage.TryGetValue(key, out var stack))
+                    {
+                        stack = new Stack<Guid>();
+                        _pendingLogIdsByMessage[key] = stack;
+                    }
+
+                    stack.Push(logId.Value);
+                }
             }
         }
+
+        internal static string LogCorrelationKey(string levelName, string category, string message) =>
+            levelName + "" + category + "" + message;
 
         private void PopulateAttachmentData(ref string message, ref string attachmentMimeType,
             ref byte[] attachmentData, ref string attachmentFileName)
@@ -186,12 +245,12 @@ namespace RanorexOrangebeardListener
             }
         }
 
-        private void LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData,
+        private Guid? LogToOrangebeard(ReportLevel level, string category, string message, byte[] attachmentData,
             string mimeType, string attachmentFileName,
             IDictionary<string, string> metaInfos)
         {
             //Don't send data if no test has been started yet.
-            if (!_orangebeard.TestRunContext().ActiveTest().HasValue) return;
+            if (!_orangebeard.TestRunContext().ActiveTest().HasValue) return null;
 
             if (category == null)
             {
@@ -237,6 +296,35 @@ namespace RanorexOrangebeardListener
             {
                 LogMetaInfo(metaInfos);
             }
+
+            return logId;
+        }
+
+        // Attaches a screenshot to a log entry that was already sent, instead of creating a new
+        // "[Screenshot]" log for text that's already in the report. Orangebeard associates an
+        // attachment with its log purely via AttachmentMetaData.LogUUID, so no new Log is needed.
+        private void AttachScreenshotToExistingLog(Guid logId, Image img, string attachmentFileName)
+        {
+            if (!TryEncodeAndDedupeScreenshot(img, out var dataBytes)) return;
+
+            var attachment = new Attachment
+            {
+                File = new AttachmentFile
+                {
+                    Name = attachmentFileName,
+                    Content = dataBytes,
+                    ContentType = "image/jpeg",
+                },
+                MetaData = new AttachmentMetaData
+                {
+                    TestRunUUID = _orangebeard.TestRunContext().TestRun,
+                    TestUUID = _orangebeard.TestRunContext().ActiveTest().Value,
+                    StepUUID = _orangebeard.TestRunContext().ActiveStep(),
+                    LogUUID = logId,
+                    AttachmentTime = DateTime.UtcNow
+                }
+            };
+            _ = _orangebeard.SendAttachment(attachment);
         }
 
         private void LogMetaInfo(IDictionary<string, string> metaInfos)
@@ -306,6 +394,10 @@ namespace RanorexOrangebeardListener
                         EndTime = DateTime.UtcNow
                     });
                     _isTestCaseOrDescendant = false;
+                    // A screenshot is only ever looked up while the item that logged it is still
+                    // finishing (see LogErrorScreenshots), so pending correlations from this test
+                    // can never be matched again once it closes.
+                    _pendingLogIdsByMessage.Clear();
                     break;
                 case "suite":
                     _orangebeard.TestRunContext().FinishSuite(_orangebeard.TestRunContext().ActiveSuite().Value);
@@ -323,10 +415,9 @@ namespace RanorexOrangebeardListener
 
             if (creationData.Type != "suite")
             {
-                var suiteDescription = ((TestSuite)TestSuite.Current).Children[0].Comment;
-                suiteDescription = suiteDescription.Length > 1024
-                    ? suiteDescription.Substring(0, 1021) + "..."
-                    : suiteDescription;
+                var suiteComment = ((TestSuite)TestSuite.Current).Children[0].Comment;
+                suiteComment = suiteComment.Length > 1024 ? suiteComment.Substring(0, 1021) + "..." : suiteComment;
+                var suiteDescription = PrependParameters(FormatContainerParameters(TestSuite.Current), suiteComment);
 
                 //start toplevel suite first
                 var suite = new StartSuite
@@ -392,7 +483,8 @@ namespace RanorexOrangebeardListener
 
         private void UpdateTree(string name, string type)
         {
-            _tree = _tree == null ? new TypeTree(type, name) : _tree.Add(type, name);
+            var activity = ActivityStack.Current;
+            _tree = _tree == null ? new TypeTree(type, name, activity) : _tree.Add(type, name, activity);
 
             if (type == "test")
             {
@@ -414,7 +506,7 @@ namespace RanorexOrangebeardListener
                     var suite = (TestSuite)TestSuite.Current;
                     type = "suite";
                     name = info["modulename"];
-                    description = suite.Children[0].Comment;
+                    description = PrependParameters(FormatContainerParameters(TestSuite.Current), suite.Children[0].Comment);
                     break;
 
                 case TESTCONTAINER:
@@ -476,6 +568,11 @@ namespace RanorexOrangebeardListener
                     break;
             }
 
+            if (activityType != TESTSUITE)
+            {
+                description = PrependParameters(FormatContainerParameters(TestSuite.CurrentTestContainer), description);
+            }
+
             var data = new ItemCreationData
             {
                 StartTime = DateTime.UtcNow,
@@ -485,6 +582,37 @@ namespace RanorexOrangebeardListener
                 Attributes = attributes,
             };
             return data;
+        }
+
+        internal static string FormatContainerParameters(ITestContainer container)
+        {
+            return FormatParameters(container?.Parameters);
+        }
+
+        internal static string FormatContainerParameters(ITestSuite suite)
+        {
+            return FormatParameters(suite?.Parameters);
+        }
+
+        internal static string FormatParameters(IDictionary<string, string> parameters)
+        {
+            if (parameters == null || parameters.Count == 0) return string.Empty;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("| Parameter | Value |");
+            sb.AppendLine("|---|---|");
+            foreach (var key in parameters.Keys)
+            {
+                sb.AppendLine("| " + key + " | " + parameters[key] + " |");
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        internal static string PrependParameters(string parametersMarkdown, string description)
+        {
+            if (string.IsNullOrEmpty(parametersMarkdown)) return description;
+            if (string.IsNullOrEmpty(description)) return parametersMarkdown;
+            return parametersMarkdown + "\r\n\r\n" + description;
         }
 
         private TestStatus DetermineFinishedItemStatus(string result /*IDictionary<string, string> info*/)
@@ -501,7 +629,11 @@ namespace RanorexOrangebeardListener
                     break;
                 default:
                     status = TestStatus.FAILED;
-                    LogErrorScreenshots(ActivityStack.Current.Children);
+                    // Use the Activity captured when this item started, not ActivityStack.Current:
+                    // Ranorex already pops the stack to the parent before this finish event reaches
+                    // us, so ActivityStack.Current.Children would pull in every sibling item's
+                    // screenshots too (see TypeTree.RanorexActivity).
+                    LogErrorScreenshots(_tree.RanorexActivity?.Children ?? Array.Empty<IReportItem>());
                     break;
             }
 
@@ -512,27 +644,39 @@ namespace RanorexOrangebeardListener
         {
             foreach (var reportItem in reportItems)
             {
-                if (reportItem.GetType() == typeof(ReportItem))
+                if (reportItem is ReportItem item)
                 {
-                    var item = (ReportItem)reportItem;
-                    if (item.ScreenshotFileName != null && !_reportedErrorScreenshots.Contains(item.ScreenshotFileName))
+                    if (item.ScreenshotFileName != null)
                     {
                         try
                         {
-                            LogData(
-                                item.Level,
-                                "Screenshot",
-                                item.Message + "\r\n" +
-                                "Screenshot file name: " + item.ScreenshotFileName,
-                                Image.FromFile(TestReport.ReportEnvironment.ReportFileDirectory + "\\" +
-                                               item.ScreenshotFileName),
-                                new IndexedDictionary<string, string>()
-                                {
-                                    new KeyValuePair<string, string>("attachmentFileName",
-                                        Path.GetFileName(item.ScreenshotFileName))
-                                });
+                            var screenshotPath = TestReport.ReportEnvironment.ReportFileDirectory + "\\" +
+                                                  item.ScreenshotFileName;
+                            var key = LogCorrelationKey(item.Level.Name, item.Category, item.Message);
 
-                            _reportedErrorScreenshots.Add(item.ScreenshotFileName);
+                            if (_pendingLogIdsByMessage.TryGetValue(key, out var stack) && stack.Count > 0)
+                            {
+                                // item.Message was already sent as its own log entry - attach the
+                                // screenshot there instead of logging the same text a second time.
+                                var logId = stack.Pop();
+                                if (stack.Count == 0) _pendingLogIdsByMessage.Remove(key);
+                                AttachScreenshotToExistingLog(logId, Image.FromFile(screenshotPath),
+                                    Path.GetFileName(item.ScreenshotFileName));
+                            }
+                            else
+                            {
+                                LogData(
+                                    item.Level,
+                                    "Screenshot",
+                                    item.Message + "\r\n" +
+                                    "Screenshot file name: " + item.ScreenshotFileName,
+                                    Image.FromFile(screenshotPath),
+                                    new IndexedDictionary<string, string>()
+                                    {
+                                        new KeyValuePair<string, string>("attachmentFileName",
+                                            Path.GetFileName(item.ScreenshotFileName))
+                                    });
+                            }
                         }
                         catch (Exception e)
                         {
@@ -546,10 +690,9 @@ namespace RanorexOrangebeardListener
                         }
                     }
                 }
-                else if (reportItem.GetType() == typeof(Activity) ||
-                         reportItem.GetType().IsSubclassOf(typeof(Activity)))
+                else if (reportItem is Activity activity)
                 {
-                    LogErrorScreenshots(((Activity)reportItem).Children);
+                    LogErrorScreenshots(activity.Children);
                 }
             }
         }
@@ -560,7 +703,7 @@ namespace RanorexOrangebeardListener
             return StripHtml(entry.Comment);
         }
 
-        private static string StripHtml(string str)
+        internal static string StripHtml(string str)
         {
             var cleanStr = str.Contains("<")
                 ? Regex.Replace(ReplaceHtmlParagraphsAndLinebreaks(str), "<[a-zA-Z/].*?>", string.Empty)
@@ -595,7 +738,7 @@ namespace RanorexOrangebeardListener
             });
         }
 
-        private static LogLevel DetermineLogLevel(string levelStr)
+        internal static LogLevel DetermineLogLevel(string levelStr)
         {
             var logLevel = levelStr.ToUpper();
             if (Enum.TryParse(logLevel, true, out LogLevel level)) return level;
@@ -614,7 +757,7 @@ namespace RanorexOrangebeardListener
         /// <param name="level">The LogLevel whose severity must be checked.</param>
         /// <param name="threshold">The severity level to check against.</param>
         /// <returns>The boolean value <code>true</code> if and only if the given log level has at least the same level of severity as the threshold value.</returns>
-        private static bool MeetsMinimumSeverity(LogLevel level, LogLevel threshold)
+        internal static bool MeetsMinimumSeverity(LogLevel level, LogLevel threshold)
         {
             return ((int)level) <= (int)threshold;
         }
