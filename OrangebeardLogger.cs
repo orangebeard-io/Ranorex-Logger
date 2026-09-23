@@ -417,7 +417,7 @@ namespace RanorexOrangebeardListener
             {
                 var suiteComment = ((TestSuite)TestSuite.Current).Children[0].Comment;
                 suiteComment = suiteComment.Length > 1024 ? suiteComment.Substring(0, 1021) + "..." : suiteComment;
-                var suiteDescription = PrependParameters(FormatContainerParameters(TestSuite.Current), suiteComment);
+                var suiteDescription = suiteComment;
 
                 //start toplevel suite first
                 var suite = new StartSuite
@@ -506,7 +506,7 @@ namespace RanorexOrangebeardListener
                     var suite = (TestSuite)TestSuite.Current;
                     type = "suite";
                     name = info["modulename"];
-                    description = PrependParameters(FormatContainerParameters(TestSuite.Current), suite.Children[0].Comment);
+                    description = suite.Children[0].Comment;
                     break;
 
                 case TESTCONTAINER:
@@ -568,11 +568,6 @@ namespace RanorexOrangebeardListener
                     break;
             }
 
-            if (activityType != TESTSUITE)
-            {
-                description = PrependParameters(FormatContainerParameters(TestSuite.CurrentTestContainer), description);
-            }
-
             var data = new ItemCreationData
             {
                 StartTime = DateTime.UtcNow,
@@ -582,37 +577,6 @@ namespace RanorexOrangebeardListener
                 Attributes = attributes,
             };
             return data;
-        }
-
-        internal static string FormatContainerParameters(ITestContainer container)
-        {
-            return FormatParameters(container?.Parameters);
-        }
-
-        internal static string FormatContainerParameters(ITestSuite suite)
-        {
-            return FormatParameters(suite?.Parameters);
-        }
-
-        internal static string FormatParameters(IDictionary<string, string> parameters)
-        {
-            if (parameters == null || parameters.Count == 0) return string.Empty;
-
-            var sb = new StringBuilder();
-            sb.AppendLine("| Parameter | Value |");
-            sb.AppendLine("|---|---|");
-            foreach (var key in parameters.Keys)
-            {
-                sb.AppendLine("| " + key + " | " + parameters[key] + " |");
-            }
-            return sb.ToString().TrimEnd();
-        }
-
-        internal static string PrependParameters(string parametersMarkdown, string description)
-        {
-            if (string.IsNullOrEmpty(parametersMarkdown)) return description;
-            if (string.IsNullOrEmpty(description)) return parametersMarkdown;
-            return parametersMarkdown + "\r\n\r\n" + description;
         }
 
         private TestStatus DetermineFinishedItemStatus(string result /*IDictionary<string, string> info*/)
