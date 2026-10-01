@@ -417,14 +417,13 @@ namespace RanorexOrangebeardListener
             {
                 var suiteComment = ((TestSuite)TestSuite.Current).Children[0].Comment;
                 suiteComment = suiteComment.Length > 1024 ? suiteComment.Substring(0, 1021) + "..." : suiteComment;
-                var suiteDescription = suiteComment;
 
                 //start toplevel suite first
                 var suite = new StartSuite
                 {
                     TestRunUUID = _orangebeard.TestRunContext().TestRun,
                     SuiteNames = new List<string> { ((TestSuite)TestSuite.Current).Children[0].Name },
-                    Description = suiteDescription,
+                    Description = suiteComment,
                     Attributes = new HashSet<Attribute>(),
                 };
 

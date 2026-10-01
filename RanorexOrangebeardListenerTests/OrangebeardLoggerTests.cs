@@ -2,7 +2,6 @@ using System;
 using System.Drawing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Orangebeard.Client.V3.Entity;
-using Ranorex.Core.Testing;
 using RanorexOrangebeardListener;
 
 namespace RanorexOrangebeardListener.Tests
