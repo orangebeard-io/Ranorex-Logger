@@ -25,7 +25,7 @@ msbuild RanorexOrangebeardListener.csproj /p:Configuration=Release /p:NoWarn=159
 dotnet build RanorexOrangebeardListener.csproj
 ```
 
-`RanorexOrangebeardListenerTests/` covers the pure/static helper logic (string formatting, log-level mapping, screenshot dedup hashing, `TypeTree`) via MSTest + Moq — run with `dotnet test RanorexOrangebeardListenerTests/RanorexOrangebeardListenerTests.csproj`. The Ranorex-event-driven logic (`LogText`, `LogData`, `HandlePotentialStartFinishLog`, `DetermineStartTestItemRequest`, and the rest of the item-lifecycle handling) is still untested: `OrangebeardAsyncV3Client` (from `Orangebeard.Client`) has no virtual members or interface to mock, and the Ranorex state it reads (`ActivityStack.Current`, `TestSuite.Current`, `TestModuleLeaf.Current`) is static engine state with no test seam — that logic is validated by integrating the library into a live Ranorex test suite instead.
+`RanorexOrangebeardListenerTests/` covers the pure/static helper logic (HTML stripping, log-level mapping, screenshot dedup hashing, log correlation keys, `TypeTree`) via MSTest — run with `dotnet test RanorexOrangebeardListenerTests/RanorexOrangebeardListenerTests.csproj`. The Ranorex-event-driven logic (`LogText`, `LogData`, `HandlePotentialStartFinishLog`, `DetermineStartTestItemRequest`, and the rest of the item-lifecycle handling) is still untested: `OrangebeardAsyncV3Client` (from `Orangebeard.Client`) has no virtual members or interface to mock, and the Ranorex state it reads (`ActivityStack.Current`, `TestSuite.Current`, `TestModuleLeaf.Current`) is static engine state with no test seam — that logic is validated by integrating the library into a live Ranorex test suite instead.
 
 ## Architecture
 

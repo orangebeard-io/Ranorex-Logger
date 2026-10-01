@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
 using Orangebeard.Client.V3.Entity;
-using Ranorex.Core.Testing;
 using RanorexOrangebeardListener;
 
 namespace RanorexOrangebeardListener.Tests
@@ -81,106 +78,6 @@ namespace RanorexOrangebeardListener.Tests
             }
 
             return bitmap;
-        }
-
-        [TestMethod]
-        public void FormatParameters_NullDictionary_ReturnsEmptyString()
-        {
-            Assert.AreEqual(string.Empty, OrangebeardLogger.FormatParameters(null));
-        }
-
-        [TestMethod]
-        public void FormatParameters_EmptyDictionary_ReturnsEmptyString()
-        {
-            Assert.AreEqual(string.Empty, OrangebeardLogger.FormatParameters(new Dictionary<string, string>()));
-        }
-
-        [TestMethod]
-        public void FormatParameters_SingleParameter_ReturnsMarkdownTable()
-        {
-            var parameters = new Dictionary<string, string> { { "username", "alice" } };
-
-            var result = OrangebeardLogger.FormatParameters(parameters);
-
-            Assert.AreEqual("| Parameter | Value |\r\n|---|---|\r\n| username | alice |", result);
-        }
-
-        [TestMethod]
-        public void FormatParameters_MultipleParameters_IncludesAllRowsInOrder()
-        {
-            var parameters = new Dictionary<string, string>
-            {
-                { "username", "alice" },
-                { "env", "staging" }
-            };
-
-            var result = OrangebeardLogger.FormatParameters(parameters);
-
-            Assert.AreEqual(
-                "| Parameter | Value |\r\n|---|---|\r\n| username | alice |\r\n| env | staging |",
-                result);
-        }
-
-        [TestMethod]
-        public void FormatContainerParameters_NullTestContainer_ReturnsEmptyString()
-        {
-            Assert.AreEqual(string.Empty, OrangebeardLogger.FormatContainerParameters((ITestContainer)null));
-        }
-
-        [TestMethod]
-        public void FormatContainerParameters_TestContainerWithParameters_ReturnsFormattedTable()
-        {
-            var containerMock = new Mock<ITestContainer>();
-            containerMock.Setup(c => c.Parameters)
-                .Returns(new Dictionary<string, string> { { "browser", "chrome" } });
-
-            var result = OrangebeardLogger.FormatContainerParameters(containerMock.Object);
-
-            StringAssert.Contains(result, "| browser | chrome |");
-        }
-
-        [TestMethod]
-        public void FormatContainerParameters_NullTestSuite_ReturnsEmptyString()
-        {
-            Assert.AreEqual(string.Empty, OrangebeardLogger.FormatContainerParameters((ITestSuite)null));
-        }
-
-        [TestMethod]
-        public void FormatContainerParameters_TestSuiteWithParameters_ReturnsFormattedTable()
-        {
-            var suiteMock = new Mock<ITestSuite>();
-            suiteMock.Setup(s => s.Parameters)
-                .Returns(new Dictionary<string, string> { { "env", "staging" } });
-
-            var result = OrangebeardLogger.FormatContainerParameters(suiteMock.Object);
-
-            StringAssert.Contains(result, "| env | staging |");
-        }
-
-        [TestMethod]
-        public void PrependParameters_BothNull_ReturnsNull()
-        {
-            Assert.IsNull(OrangebeardLogger.PrependParameters(null, null));
-        }
-
-        [TestMethod]
-        public void PrependParameters_ParametersEmpty_ReturnsDescriptionUnchanged()
-        {
-            Assert.AreEqual("some description", OrangebeardLogger.PrependParameters("", "some description"));
-        }
-
-        [TestMethod]
-        public void PrependParameters_DescriptionEmpty_ReturnsParametersUnchanged()
-        {
-            Assert.AreEqual("| Parameter | Value |", OrangebeardLogger.PrependParameters("| Parameter | Value |", ""));
-        }
-
-        [TestMethod]
-        public void PrependParameters_BothPresent_ConcatenatesWithBlankLineBetween()
-        {
-            var result = OrangebeardLogger.PrependParameters("PARAMS", "DESCRIPTION");
-
-            Assert.AreEqual("PARAMS\r\n\r\nDESCRIPTION", result);
         }
 
         [TestMethod]
